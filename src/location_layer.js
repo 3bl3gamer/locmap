@@ -19,7 +19,7 @@ export function LocationLayer() {
 	let watchID = /** @type {number|null} */ (null)
 
 	/** @param {import('./map').LocMap} map */
-	this.onregister = map => {
+	this.register = map => {
 		watchID = navigator.geolocation.watchPosition(geoPos => {
 			lastLocation = geoPos.coords
 			map.requestRedraw()
@@ -27,13 +27,10 @@ export function LocationLayer() {
 	}
 
 	/** @param {import('./map').LocMap} map */
-	this.onunregister = map => {
+	this.unregister = map => {
 		if (watchID !== null) navigator.geolocation.clearWatch(watchID)
 		watchID = null
 	}
-
-	/** @param {import('./map').LocMap} map */
-	this.update = map => {}
 
 	/** @param {import('./map').LocMap} map */
 	this.redraw = map => {
@@ -44,8 +41,8 @@ export function LocationLayer() {
 		const x = -map.getTopLeftXShift() + map.lon2x(lastLocation.longitude)
 		const y = -map.getTopLeftYShift() + map.lat2y(lastLocation.latitude)
 
-		const r = lastLocation.accuracy * map.meters2pixCoef(lastLocation.latitude)
 		const lineW = 4
+		const r = Math.max(lineW / 2, lastLocation.accuracy * map.meters2pixCoef(lastLocation.latitude))
 
 		rc.save()
 

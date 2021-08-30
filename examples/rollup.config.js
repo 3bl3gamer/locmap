@@ -1,5 +1,8 @@
 import html from '@rollup/plugin-html'
 import resolve from '@rollup/plugin-node-resolve'
+import { promises as fs } from 'fs'
+
+const DIST = `${__dirname}/dist`
 
 export default async function (commandOptions) {
 	return [
@@ -7,11 +10,18 @@ export default async function (commandOptions) {
 			input: `${__dirname}/src/index.js`,
 			output: {
 				format: 'iife',
-				dir: `${__dirname}/dist`,
+				dir: DIST,
 				entryFileNames: 'bundle.[hash].js',
 				sourcemap: true,
 			},
-			plugins: [resolve(), html({ title: 'Examples' })],
+			plugins: [
+				{
+					name: 'clear-dist',
+					buildStart: () => fs.rm(DIST, { recursive: true, force: true }),
+				},
+				resolve(),
+				html({ title: 'Examples' }),
+			],
 			watch: { clearScreen: false },
 		},
 	]

@@ -10,10 +10,11 @@
 
 /**
  * @typedef {{
- *   onregister(map:LocMap):unknown,
- *   onunregister(map:LocMap):unknown,
- *   update(map:LocMap):unknown,
- *   redraw(map:LocMap):unknown,
+ *   register?(map:LocMap): unknown,
+ *   unregister?(map:LocMap): unknown,
+ *   update?(map:LocMap): unknown,
+ *   redraw?(map:LocMap): unknown,
+ *   onEvent?: Record<string, (map:LocMap, params:any) => unknown>,
  * }} MapLayer
  */
 
@@ -49,12 +50,12 @@ export function LocMap(wrap, conv) {
 	this.getHeight = () => curHeight
 
 	const canvas = document.createElement('canvas')
+	canvas.className = 'locmap-canvas'
 	canvas.style.position = 'absolute'
 	canvas.style.left = '0'
 	canvas.style.top = '0'
 	canvas.style.width = '100%'
 	canvas.style.height = '100%'
-	canvas.style.transform = 'translateZ(0)'
 	wrap.appendChild(canvas)
 	const rc = canvas.getContext('2d')
 
@@ -102,14 +103,14 @@ export function LocMap(wrap, conv) {
 		const pos = layers.indexOf(layer)
 		if (pos != -1) throw new Error('already registered')
 		layers.push(layer)
-		layer.onregister(this)
+		if (layer.register) layer.register(this)
 	}
 	/** @param {MapLayer} layer */
 	this.unregister = function (layer) {
 		const pos = layers.indexOf(layer)
 		if (pos == -1) throw new Error('not registered yet')
 		layers.splice(pos, 1)
-		layer.onunregister(this)
+		if (layer.unregister) layer.unregister(this)
 	}
 
 	/**
@@ -128,13 +129,19 @@ export function LocMap(wrap, conv) {
 	}
 
 	const updateLayers = () => {
-		for (let i = 0; i < layers.length; i++) layers[i].update(this)
+		for (let i = 0; i < layers.length; i++) {
+			const layer = layers[i]
+			if (layer.update) layer.update(this)
+		}
 	}
 	const drawLayers = () => {
 		if (rc === null) return
 		rc.clearRect(0, 0, canvas.width, canvas.height)
 		rc.scale(devicePixelRatio, devicePixelRatio)
-		for (let i = 0; i < layers.length; i++) layers[i].redraw(this)
+		for (let i = 0; i < layers.length; i++) {
+			const layer = layers[i]
+			if (layer.redraw) layer.redraw(this)
+		}
 		rc.scale(1 / devicePixelRatio, 1 / devicePixelRatio)
 	}
 
@@ -191,7 +198,7 @@ export function LocMap(wrap, conv) {
 
 		updateLayers()
 		this.requestRedraw()
-		this.emit('MapZoom', {})
+		this.emit('mapZoom', {})
 	}
 
 	/**
@@ -217,7 +224,7 @@ export function LocMap(wrap, conv) {
 
 		updateLayers()
 		this.requestRedraw()
-		this.emit('MapMove', {})
+		this.emit('mapMove', {})
 	}
 
 	//------------
@@ -228,10 +235,10 @@ export function LocMap(wrap, conv) {
 	 * @param {unknown} params
 	 */
 	this.emit = (name, params) => {
-		name = 'on' + name
 		for (let i = 0; i < layers.length; i++) {
 			const layer = layers[i]
-			if (name in layer) layer[name](this, params)
+			const handler = layer.onEvent && layer.onEvent[name]
+			if (handler) handler(this, params)
 		}
 	}
 

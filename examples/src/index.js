@@ -19,7 +19,7 @@ const tileContainer = new TileContainer(
 	(x, y, z) => `http://a.tile.openstreetmap.org/${z}/${x}/${y}.png`,
 )
 map.register(new TileLayer(tileContainer))
-let controlLayer = new ControlLayer(map)
+let controlLayer = new ControlLayer()
 map.register(controlLayer)
 map.register(new ControlHintLayer('hold Ctrl to zoom', 'use two fingers to drag'))
 map.register(new LocationLayer())
@@ -34,12 +34,16 @@ uiWrap.style.right = '0'
 uiWrap.style.padding = '5px'
 uiWrap.style.backgroundColor = 'rgba(255,255,255,0.8)'
 uiWrap.innerHTML = `
-<label><input class="ctrl-checkbox" type="checkbox"/> require Ctrl</label>`
+<label>
+	<input class="ctrl-checkbox" type="checkbox"/>
+	do not interfere with regular page interaction<br>
+	<span style="color:gray">(require Ctrl for wheel-zoom and two fingers for touch-drag)</span>
+</label>`
 document.body.appendChild(uiWrap)
 
 const $ = selector => uiWrap.querySelector(selector)
 $('.ctrl-checkbox').onchange = function () {
 	map.unregister(controlLayer)
-	controlLayer = new ControlLayer(map, { requireModKey: this.checked })
+	controlLayer = new ControlLayer({ doNotInterfere: this.checked })
 	map.register(controlLayer)
 }

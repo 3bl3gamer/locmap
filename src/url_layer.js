@@ -19,16 +19,11 @@ export function URLLayer() {
 		location.hash = `#${lon}/${lat}/${z}`
 	}
 
-	this.onregister = lookInURL
-	/** @param {import('./map').LocMap} map */
-	this.onunregister = map => {}
+	this.register = lookInURL
 
 	/** @param {import('./map').LocMap} map */
 	this.update = map => {
 		clearTimeout(updateTimeout)
 		updateTimeout = window.setTimeout(() => updateURL(map), 500)
 	}
-
-	/** @param {import('./map').LocMap} map */
-	this.redraw = map => {}
 }

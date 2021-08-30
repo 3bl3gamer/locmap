@@ -65,9 +65,7 @@ export function TileLayer(tileHost) {
 	}
 
 	/** @param {import('./map').LocMap} map */
-	this.onregister = map => {}
-	/** @param {import('./map').LocMap} map */
-	this.onunregister = map => {
+	this.unregister = map => {
 		if (tileHost) tileHost.clearCache()
 	}
 
