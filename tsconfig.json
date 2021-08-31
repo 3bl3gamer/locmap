@@ -2,11 +2,8 @@
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": true,
-		"strictNullChecks": true,
-		"strictFunctionTypes": true,
-		"strictBindCallApply": true,
-		"strictPropertyInitialization": true,
-		"noImplicitThis": true,
+		"strict": true,
+		"noImplicitAny": false,
 		"sourceMap": true,
 		// fixes node_modules package resolution
 		"moduleResolution": "node",

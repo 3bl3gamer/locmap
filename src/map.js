@@ -145,15 +145,25 @@ export function LocMap(wrap, conv) {
 		rc.scale(1 / devicePixelRatio, 1 / devicePixelRatio)
 	}
 
-	let zoom_smooth_delta = 1
-	let zoom_smooth_x = 0
-	let zoom_smooth_y = 0
+	let zoomSmoothDelta = 1
+	let zoomSmoothX = 0
+	let zoomSmoothY = 0
+	let moveXInertia = 0
+	let moveYInertia = 0
+	let zoomDeltaInertia = 1
 	const smoothIfNecessary = () => {
-		if (zoom_smooth_delta > 0.99 && zoom_smooth_delta < 1.01) return
-		const new_delta = 1 + (zoom_smooth_delta - 1) * 0.7
-		this.doZoom(zoom_smooth_x, zoom_smooth_y, zoom_smooth_delta / new_delta)
-		zoom_smooth_delta = new_delta
-		this.requestRedraw()
+		if (Math.abs(zoomSmoothDelta - 1) > 0.01 || Math.abs(zoomDeltaInertia - 1) > 0.01) {
+			zoomSmoothDelta *= zoomDeltaInertia
+			zoomDeltaInertia += (1 - zoomDeltaInertia) * 0.2
+			const newDelta = 1 + (zoomSmoothDelta - 1) * 0.7
+			this.zoom(zoomSmoothX, zoomSmoothY, zoomSmoothDelta / newDelta)
+			zoomSmoothDelta = newDelta
+		}
+		if (Math.abs(moveXInertia) > 0.5 || Math.abs(moveYInertia) > 0.5) {
+			this.move(moveXInertia, moveYInertia)
+			moveXInertia *= 0.9
+			moveYInertia *= 0.9
+		}
 	}
 
 	let animFrameRequested = false
@@ -189,7 +199,7 @@ export function LocMap(wrap, conv) {
 	 * @param {number} y
 	 * @param {number} d
 	 */
-	this.doZoom = (x, y, d) => {
+	this.zoom = (x, y, d) => {
 		zoom = Math.max(minZoom, zoom * d)
 		level = (Math.log(zoom) / Math.log(2) + 0.5) | 0
 		xShift += (-x + curWidth / 2 - xShift) * (1 - d)
@@ -206,10 +216,10 @@ export function LocMap(wrap, conv) {
 	 * @param {number} y
 	 * @param {number} d
 	 */
-	this.doSmoothZoom = (x, y, d) => {
-		zoom_smooth_delta = Math.max(minZoom / zoom, zoom_smooth_delta * d)
-		zoom_smooth_x = x
-		zoom_smooth_y = y
+	this.zoomSmooth = (x, y, d) => {
+		zoomSmoothDelta = Math.max(minZoom / zoom, zoomSmoothDelta * d)
+		zoomSmoothX = x
+		zoomSmoothY = y
 		smoothIfNecessary()
 	}
 
@@ -225,6 +235,28 @@ export function LocMap(wrap, conv) {
 		updateLayers()
 		this.requestRedraw()
 		this.emit('mapMove', {})
+	}
+
+	/**
+	 * @param {number} dx
+	 * @param {number} dy
+	 */
+	this.applyMoveInertia = (dx, dy) => {
+		moveXInertia = dx
+		moveYInertia = dy
+		smoothIfNecessary()
+	}
+	/**
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} dz
+	 */
+	this.applyZoomInertia = (x, y, dz) => {
+		zoomDeltaInertia = dz
+		zoomSmoothX = x
+		zoomSmoothY = y
+		zoomSmoothDelta = 1
+		smoothIfNecessary()
 	}
 
 	//------------

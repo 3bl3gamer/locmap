@@ -25,6 +25,73 @@ export function ControlLayer(opts) {
 	let touchDist = 0
 	let delayFingersHintUntil = 0
 
+	let lastMoves = [
+		{ dx: 0, dy: 0, stamp: 0 },
+		{ dx: 0, dy: 0, stamp: 0 },
+	]
+	let lastZooms = [
+		{ x: 0, y: 0, dz: 0, stamp: 0 },
+		{ x: 0, y: 0, dz: 0, stamp: 0 },
+	]
+	// while (lastMoves.length < 2) lastMoves.push(Object.assign({}, lastMoves[0]))
+
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} newX
+	 * @param {number} newY
+	 * @param {number} stamp
+	 */
+	function applyMovement(map, newX, newY, stamp) {
+		if (newX === mouseX && newY === mouseY) return //sometimes zero movements are received (in FF 91 with touch)
+		/** @type {typeof lastMoves[number]} */
+		const last = /** @type {*} */ (lastMoves.shift())
+		lastMoves.push(last)
+		last.dx = newX - mouseX
+		last.dy = newY - mouseY
+		last.stamp = stamp
+		map.move(last.dx, last.dy)
+	}
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} dz
+	 * @param {number} stamp
+	 */
+	function applyZoom(map, x, y, dz, stamp) {
+		if (dz === 1) return //sometimes zero movements are received (in FF 91 with touch)
+		/** @type {typeof lastZooms[number]} */
+		const last = /** @type {*} */ (lastZooms.shift())
+		lastZooms.push(last)
+		last.x = x
+		last.y = y
+		last.dz = dz
+		last.stamp = stamp
+		map.zoom(x, y, dz)
+	}
+	/** @param {import('./map').LocMap} map */
+	function applyInertiaIfNeed(map) {
+		// let sumDX = 0
+		// let sumDY = 0
+		// let count = 0
+		// // ignoring last movement(s), it(they) may be slower than expected inertia motion
+		// for (let i = lastMoves.length - 2; i >= 0; i--) {
+		// 	const move = lastMoves[i]
+		// 	if (performance.now() - move.stamp > 100) break
+		// 	sumDX += move.dx
+		// 	sumDY += move.dy
+		// 	count += 1
+		// }
+		// if (count > 0) map.applyMoveInertia(sumDX / count, sumDY / count)
+
+		// ignoring last movement(s), it(they) may be slower than expected inertia motion
+		const move = lastMoves[0]
+		if (performance.now() - move.stamp < 150) map.applyMoveInertia(move.dx, move.dy)
+
+		const zoom = lastZooms[0]
+		if (performance.now() - zoom.stamp < 150) map.applyZoomInertia(zoom.x, zoom.y, zoom.dz)
+	}
+
 	/** @param {import('./map').LocMap} map */
 	const makeControl = map =>
 		controlDouble({
@@ -34,58 +101,61 @@ export function ControlLayer(opts) {
 					mouseIsDown = isMouse
 					mouseX = x
 					mouseY = y
+					if (!isSwitching) {
+						map.applyMoveInertia(0, 0)
+						map.applyZoomInertia(0, 0, 1)
+					}
 					map.emit('singleDown', { x, y, isMouse, isSwitching })
-					return mouseIsDown
+					return true
 				},
 				singleMove(e, id, x, y) {
 					const isMouse = id === 'mouse'
-					if (doNotInterfere && !isMouse && Date.now() > delayFingersHintUntil)
+					if (doNotInterfere && !isMouse && Date.now() > delayFingersHintUntil) {
 						map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_two_fingers' }))
-					if (mouseIsDown) map.move(x - mouseX, y - mouseY)
-					mouseX = x
-					mouseY = y
-					map.emit('singleMove', { x: x, y: y, isMouse: isMouse, isDown: mouseIsDown })
-					return mouseIsDown
+					} else {
+						if (mouseIsDown || !isMouse) applyMovement(map, x, y, e.timeStamp)
+						mouseX = x
+						mouseY = y
+						map.emit('singleMove', { x, y, isMouse: isMouse, isDown: mouseIsDown })
+					}
+					return mouseIsDown || !isMouse
 				},
-				singleUp(e, isMouse, is_switching) {
-					const was_down = mouseIsDown
+				singleUp(e, id, isSwitching) {
+					const isMouse = id === 'mouse'
+					const wasDown = mouseIsDown
 					mouseIsDown = false
-					if (was_down)
-						map.emit('singleUp', {
-							x: mouseX,
-							y: mouseY,
-							isMouse: isMouse,
-							wasDown: was_down,
-							isSwitching: is_switching,
-						})
-					return was_down
+					if ((wasDown || !isMouse) && !isSwitching) applyInertiaIfNeed(map)
+					map.emit('singleUp', { x: mouseX, y: mouseY, isMouse, wasDown, isSwitching })
+					return wasDown || !isMouse
 				},
-				doubleDown(e, x0, y0, x1, y1) {
+				doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
 					mouseX = (x0 + x1) * 0.5
 					mouseY = (y0 + y1) * 0.5
 					touchDist = point_distance(x0, y0, x1, y1)
 					map.emit('doubleDown', {})
 					return true
 				},
-				doubleMove(e, x0, y0, x1, y1) {
+				doubleMove(e, id0, x0, y0, id1, x1, y1) {
 					const cx = (x0 + x1) * 0.5
 					const cy = (y0 + y1) * 0.5
 					const cd = point_distance(x0, y0, x1, y1)
-					map.doZoom(cx, cy, cd / touchDist)
-					map.move(cx - mouseX, cy - mouseY)
+					applyMovement(map, cx, cy, e.timeStamp)
+					applyZoom(map, cx, cy, cd / touchDist, e.timeStamp)
 					mouseX = cx
 					mouseY = cy
 					touchDist = cd
+					map.emit('doubleMove', {})
 					return true
 				},
-				doubleUp(e) {
+				doubleUp(e, id0, id1, isSwitching) {
 					mouseX = mouseY = NaN
 					delayFingersHintUntil = Date.now() + 1000
+					map.emit('doubleUp', {})
 					return true
 				},
 				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
 					if (!doNotInterfere || e.ctrlKey) {
-						map.doSmoothZoom(x, y, Math.pow(2, -deltaY / 250))
+						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250))
 						return true
 					} else {
 						map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_control_to_zoom' }))
@@ -93,7 +163,7 @@ export function ControlLayer(opts) {
 					}
 				},
 			},
-			startElem: map.getWrap(),
+			startElem: map.getCanvas(),
 		})
 
 	/** @param {import('./map').LocMap} map */
@@ -132,15 +202,15 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 	if (opts && opts.styles) Object.assign(styles, opts.styles)
 	for (const name in styles) elem.style[name] = styles[name]
 
-	let timeout = /** @type {number|null} */ (null)
+	let timeout = -1
 	function showHint(text) {
-		if (timeout !== null) clearTimeout(timeout)
+		clearTimeout(timeout)
 		elem.textContent = text
 		elem.style.opacity = '1'
 		timeout = window.setTimeout(hideHint, 1000)
 	}
 	function hideHint() {
-		if (timeout !== null) clearTimeout(timeout)
+		clearTimeout(timeout)
 		elem.style.opacity = '0'
 	}
 
