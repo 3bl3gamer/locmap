@@ -19,6 +19,7 @@
  */
 
 /**
+ * @class
  * @param {HTMLElement} wrap
  * @param {ProjectionConverter} conv
  */
@@ -285,6 +286,7 @@ export function LocMap(wrap, conv) {
 	pos_map2screen()
 }
 
+/** @class */
 function FrameCounter() {
 	const frameTimeDeltas = [16, 16, 16, 16, 16]
 	let prevFrameTimeDelta = /**@type {number|null} */ (null)

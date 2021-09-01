@@ -1,4 +1,5 @@
 /**
+ * @class
  * @param {import('./tile_container').TileContainer} tileHost
  */
 export function TileLayer(tileHost) {

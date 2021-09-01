@@ -14,6 +14,7 @@ function getTileKey(x, y, z) {
 }
 
 /**
+ * @class
  * @param {number} tileW
  * @param {(x:number, y:number, z:number) => string} pathFunc
  */

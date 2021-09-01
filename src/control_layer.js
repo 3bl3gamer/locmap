@@ -44,6 +44,7 @@ function getApproximatedDelta(items, attr) {
 /** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
 
 /**
+ * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
 export function ControlLayer(opts) {
@@ -229,6 +230,7 @@ export function ControlLayer(opts) {
 }
 
 /**
+ * @class
  * @param {string} controlText
  * @param {string} twoFingersText
  * @param {{styles:Record<string,string>}} [opts ]

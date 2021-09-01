@@ -8,6 +8,7 @@ function applyHashLocation(map) {
 	map.updateLocation(lon, lat, level)
 }
 
+/** @class */
 export function URLLayer() {
 	let updateTimeout = -1
 	/** @param {import('./map').LocMap} map */
