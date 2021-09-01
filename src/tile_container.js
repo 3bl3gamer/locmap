@@ -1,6 +1,6 @@
 /** @param {HTMLImageElement} img */
 function isLoaded(img) {
-	return img.naturalWidth > 0
+	return img.complete && img.naturalWidth > 0
 }
 
 /**
@@ -74,15 +74,15 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} scale
 	 * @param {number} i
 	 * @param {number} j
-	 * @param {number} l
+	 * @param {number} level
 	 * @param {boolean} load_on_fail
 	 */
-	this.tryDrawTile = (map, x, y, scale, i, j, l, load_on_fail) => {
+	this.tryDrawTile = (map, x, y, scale, i, j, level, load_on_fail) => {
 		//console.log("drawing tile", x,y,scale, i,j,l)
-		const key = getTileKey(i, j, l)
+		const key = getTileKey(i, j, level)
 		const img = cache.get(key)
 		if (img === undefined) {
-			if (load_on_fail) cache.set(key, getTileImg(map, i, j, l))
+			if (load_on_fail) cache.set(key, getTileImg(map, i, j, level))
 			return false
 		} else {
 			if (isLoaded(img)) {
@@ -100,20 +100,21 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} scale
-	 * @param {number} qi
-	 * @param {number} qj
+	 * @param {number} partN
+	 * @param {number} partI
+	 * @param {number} partJ
 	 * @param {number} i
 	 * @param {number} j
-	 * @param {number} l
+	 * @param {number} level
 	 */
-	this.tryDrawQuarter = (map, x, y, scale, qi, qj, i, j, l) => {
-		const key = getTileKey(i, j, l)
+	this.tryDrawPart = (map, x, y, scale, partN, partI, partJ, i, j, level) => {
+		const key = getTileKey(i, j, level)
 		const img = cache.get(key)
 		if (!img || !isLoaded(img)) return false
-		const w = tileW / 2
+		const partW = tileW / partN
 		drawTile(map, img,
-		         qi*w,qj*w, w,w,
-		         x,y, w*2*scale,w*2*scale) //prettier-ignore
+		         partI*partW,partJ*partW, partW,partW,
+		         x,y, tileW*scale,tileW*scale) //prettier-ignore
 		return true
 	}
 
@@ -126,10 +127,10 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} qj
 	 * @param {number} i
 	 * @param {number} j
-	 * @param {number} l
+	 * @param {number} level
 	 */
-	this.tryDrawAsQuarter = (map, x, y, scale, qi, qj, i, j, l) => {
-		const key = getTileKey(i, j, l)
+	this.tryDrawAsQuarter = (map, x, y, scale, qi, qj, i, j, level) => {
+		const key = getTileKey(i, j, level)
 		const img = cache.get(key)
 		if (!img || !isLoaded(img)) return false
 		const w = (tileW / 2) * scale

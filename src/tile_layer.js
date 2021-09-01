@@ -53,15 +53,18 @@ export function TileLayer(tileHost) {
 		const level = map.getLevel() + levelDifference
 
 		let drawed = tileHost.tryDrawTile(map, x, y, scale, i, j, level, true)
-		if (!drawed) {
-			drawed = tileHost.tryDrawQuarter(map, x, y, scale, i % 2, j % 2, i >> 1, j >> 1, level - 1)
-			if (!drawed) {
-				tileHost.tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1) //prettier-ignore
-				tileHost.tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1) //prettier-ignore
-				tileHost.tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1) //prettier-ignore
-				tileHost.tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1) //prettier-ignore
-			}
+		if (drawed) return
+
+		for (let sub = 1; sub <= 2; sub++) {
+			const n = 1 << sub
+			drawed = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub) //prettier-ignore
+			if (drawed) return
 		}
+
+		tileHost.tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1) //prettier-ignore
+		tileHost.tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1) //prettier-ignore
+		tileHost.tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1) //prettier-ignore
+		tileHost.tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1) //prettier-ignore
 	}
 
 	/** @param {import('./map').LocMap} map */
