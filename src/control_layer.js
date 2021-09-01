@@ -10,6 +10,37 @@ function point_distance(x1, y1, x2, y2) {
 	return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
 }
 
+/**
+ * @param {{stamp:number}[]} items
+ * @param {string} attr
+ */
+function getApproximatedDelta(items, attr) {
+	// https://prog-cpp.ru/mnk/
+	let sumx = 0
+	let sumy = 0
+	let sumx2 = 0
+	let sumxy = 0
+	let n = 0
+	const now = performance.now()
+	let startI = items.length - 1
+	// ignoring the last movement, it may be slower than expected inertia motion
+	if (startI > 2) startI -= 1
+	for (let i = startI; i >= 0; i--) {
+		const x = items[i].stamp
+		if (now - x > 150) break
+		const y = /**@type {number}*/ (items[i][attr])
+		sumx += x
+		sumy += y
+		sumx2 += x * x
+		sumxy += x * y
+		n++
+	}
+	if (n <= 1) return 0
+	const a = (n * sumxy - sumx * sumy) / (n * sumx2 - sumx * sumx)
+	// const b = (sumy - a * sumx) / n
+	return a
+}
+
 /** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
 
 /**
@@ -22,74 +53,79 @@ export function ControlLayer(opts) {
 	let mouseX = NaN
 	let mouseY = NaN
 	let mouseIsDown = false
-	let touchDist = 0
-	let delayFingersHintUntil = 0
 
-	let lastMoves = [
-		{ dx: 0, dy: 0, stamp: 0 },
-		{ dx: 0, dy: 0, stamp: 0 },
-	]
-	let lastZooms = [
-		{ x: 0, y: 0, dz: 0, stamp: 0 },
-		{ x: 0, y: 0, dz: 0, stamp: 0 },
-	]
-	// while (lastMoves.length < 2) lastMoves.push(Object.assign({}, lastMoves[0]))
+	let lastDoubleTouch_cx = 0
+	let lastDoubleTouch_cy = 0
+	let lastDoubleTouch_dx = 0
+	let lastDoubleTouch_dy = 0
+	let lastDoubleTouch_dist = 1
+	let lastDoubleTouch_stamp = 0
 
-	/**
-	 * @param {import('./map').LocMap} map
-	 * @param {number} newX
-	 * @param {number} newY
-	 * @param {number} stamp
-	 */
-	function applyMovement(map, newX, newY, stamp) {
-		if (newX === mouseX && newY === mouseY) return //sometimes zero movements are received (in FF 91 with touch)
+	let lastMoves = [{ x: 0, y: 0, stamp: 0 }]
+	let lastZooms = [{ dist: 0, stamp: 0 }]
+	for (const arr of [lastMoves, lastZooms])
+		while (arr.length < 5) arr.push(Object.assign({}, /**@type {*}*/ (arr[0])))
+
+	/** @param {number} stamp */
+	function recordMousePos(stamp) {
 		/** @type {typeof lastMoves[number]} */
 		const last = /** @type {*} */ (lastMoves.shift())
 		lastMoves.push(last)
-		last.dx = newX - mouseX
-		last.dy = newY - mouseY
+		last.x = mouseX
+		last.y = mouseY
 		last.stamp = stamp
-		map.move(last.dx, last.dy)
 	}
-	/**
-	 * @param {import('./map').LocMap} map
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} dz
-	 * @param {number} stamp
-	 */
-	function applyZoom(map, x, y, dz, stamp) {
-		if (dz === 1) return //sometimes zero movements are received (in FF 91 with touch)
+	/** Shifts all lastMoves so that the last recorded move will be at mouse(x,y) */
+	function moveRecordedMousePos() {
+		const last = lastMoves[lastMoves.length - 1]
+		const dx = mouseX - last.x
+		const dy = mouseY - last.y
+		for (let i = 0; i < lastMoves.length; i++) {
+			lastMoves[i].x += dx
+			lastMoves[i].y += dy
+		}
+	}
+	/** @param {number} stamp */
+	function recordTouchDist(stamp) {
 		/** @type {typeof lastZooms[number]} */
 		const last = /** @type {*} */ (lastZooms.shift())
 		lastZooms.push(last)
-		last.x = x
-		last.y = y
-		last.dz = dz
+		last.dist = lastDoubleTouch_dist
 		last.stamp = stamp
-		map.zoom(x, y, dz)
 	}
 	/** @param {import('./map').LocMap} map */
-	function applyInertiaIfNeed(map) {
-		// let sumDX = 0
-		// let sumDY = 0
-		// let count = 0
-		// // ignoring last movement(s), it(they) may be slower than expected inertia motion
-		// for (let i = lastMoves.length - 2; i >= 0; i--) {
-		// 	const move = lastMoves[i]
-		// 	if (performance.now() - move.stamp > 100) break
-		// 	sumDX += move.dx
-		// 	sumDY += move.dy
-		// 	count += 1
-		// }
-		// if (count > 0) map.applyMoveInertia(sumDX / count, sumDY / count)
+	function applyInertia(map) {
+		const frameDelta = map.getFrameTimeDelta()
+		const now = performance.now()
+		const dx = getApproximatedDelta(lastMoves, 'x') * frameDelta
+		const dy = getApproximatedDelta(lastMoves, 'y') * frameDelta
+		const dz = (getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist) * frameDelta + 1
+		map.applyMoveInertia(dx, dy)
+		map.applyZoomInertia(mouseX, mouseY, dz)
+	}
 
-		// ignoring last movement(s), it(they) may be slower than expected inertia motion
-		const move = lastMoves[0]
-		if (performance.now() - move.stamp < 150) map.applyMoveInertia(move.dx, move.dy)
-
-		const zoom = lastZooms[0]
-		if (performance.now() - zoom.stamp < 150) map.applyZoomInertia(zoom.x, zoom.y, zoom.dz)
+	/**
+	 * Sets mouse(x,y) to (x,y) with special post-double-touch correction.
+	 *
+	 * Two fingers do not lift simultaneously, so there is always two-touches -> one-touch -> no touch.
+	 * This may cause a problem if two touches move in opposite directions (zooming):
+	 * while they both are down, there is a little movement,
+	 * but when first touch lift, second (still down) starts to move map aside with significant speed.
+	 * Then second touch lifts too and speed reduces again (because of smoothing and inertia).
+	 * All that makes motion at the end of zoom gesture looks trembling.
+	 *
+	 * This function tries to fix that by continuing double-touch motion for a while.
+	 * Used only for movement: zooming should remain smooth thanks to applyInertia() ath the end of doubleUp().
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} stamp
+	 */
+	function setCorrectedSinglePos(x, y, stamp) {
+		const timeDelta = stamp - lastDoubleTouch_stamp
+		const duration = 150
+		const k = Math.max(0, Math.min(1, ((duration - timeDelta) / duration) * 2))
+		mouseX = (lastDoubleTouch_cx + lastDoubleTouch_dx * timeDelta) * k + x * (1 - k)
+		mouseY = (lastDoubleTouch_cy + lastDoubleTouch_dy * timeDelta) * k + y * (1 - k)
 	}
 
 	/** @param {import('./map').LocMap} map */
@@ -99,9 +135,10 @@ export function ControlLayer(opts) {
 				singleDown(e, id, x, y, isSwitching) {
 					const isMouse = id === 'mouse'
 					mouseIsDown = isMouse
-					mouseX = x
-					mouseY = y
+					setCorrectedSinglePos(x, y, e.timeStamp)
+					if (isSwitching) moveRecordedMousePos()
 					if (!isSwitching) {
+						recordMousePos(e.timeStamp)
 						map.applyMoveInertia(0, 0)
 						map.applyZoomInertia(0, 0, 1)
 					}
@@ -110,12 +147,14 @@ export function ControlLayer(opts) {
 				},
 				singleMove(e, id, x, y) {
 					const isMouse = id === 'mouse'
-					if (doNotInterfere && !isMouse && Date.now() > delayFingersHintUntil) {
+					if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
 						map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_two_fingers' }))
 					} else {
-						if (mouseIsDown || !isMouse) applyMovement(map, x, y, e.timeStamp)
-						mouseX = x
-						mouseY = y
+						const oldX = mouseX
+						const oldY = mouseY
+						setCorrectedSinglePos(x, y, e.timeStamp)
+						if (mouseIsDown || !isMouse) map.move(mouseX - oldX, mouseY - oldY)
+						recordMousePos(e.timeStamp)
 						map.emit('singleMove', { x, y, isMouse: isMouse, isDown: mouseIsDown })
 					}
 					return mouseIsDown || !isMouse
@@ -124,14 +163,19 @@ export function ControlLayer(opts) {
 					const isMouse = id === 'mouse'
 					const wasDown = mouseIsDown
 					mouseIsDown = false
-					if ((wasDown || !isMouse) && !isSwitching) applyInertiaIfNeed(map)
+					if ((wasDown || !isMouse) && !isSwitching) applyInertia(map)
 					map.emit('singleUp', { x: mouseX, y: mouseY, isMouse, wasDown, isSwitching })
 					return wasDown || !isMouse
 				},
 				doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
 					mouseX = (x0 + x1) * 0.5
 					mouseY = (y0 + y1) * 0.5
-					touchDist = point_distance(x0, y0, x1, y1)
+					lastDoubleTouch_dist = point_distance(x0, y0, x1, y1)
+					if (isSwitching) moveRecordedMousePos()
+					if (!isSwitching) {
+						recordMousePos(e.timeStamp)
+						recordTouchDist(e.timeStamp)
+					}
 					map.emit('doubleDown', {})
 					return true
 				},
@@ -139,17 +183,24 @@ export function ControlLayer(opts) {
 					const cx = (x0 + x1) * 0.5
 					const cy = (y0 + y1) * 0.5
 					const cd = point_distance(x0, y0, x1, y1)
-					applyMovement(map, cx, cy, e.timeStamp)
-					applyZoom(map, cx, cy, cd / touchDist, e.timeStamp)
+					map.move(cx - mouseX, cy - mouseY)
+					map.zoom(cx, cy, cd / lastDoubleTouch_dist)
 					mouseX = cx
 					mouseY = cy
-					touchDist = cd
+					lastDoubleTouch_dist = cd
+					recordMousePos(e.timeStamp)
+					recordTouchDist(e.timeStamp)
+					lastDoubleTouch_cx = cx
+					lastDoubleTouch_cy = cy
 					map.emit('doubleMove', {})
 					return true
 				},
 				doubleUp(e, id0, id1, isSwitching) {
+					applyInertia(map)
 					mouseX = mouseY = NaN
-					delayFingersHintUntil = Date.now() + 1000
+					lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x')
+					lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y')
+					lastDoubleTouch_stamp = e.timeStamp
 					map.emit('doubleUp', {})
 					return true
 				},

@@ -118,14 +118,14 @@ export function LocMap(wrap, conv) {
 	 * @param {number} _lat
 	 * @param {number} _level
 	 */
-	this.updateLocation = function (_lon, _lat, _level) {
+	this.updateLocation = (_lon, _lat, _level) => {
 		lon = _lon
 		lat = _lat
 		level = (_level + 0.5) | 0
 		zoom = Math.pow(2, _level)
 		pos_map2screen()
 		updateLayers()
-		this.requestRedraw()
+		requestRedraw()
 	}
 
 	const updateLayers = () => {
@@ -166,18 +166,24 @@ export function LocMap(wrap, conv) {
 		}
 	}
 
+	const frameCounter = new FrameCounter()
 	let animFrameRequested = false
-	this.requestRedraw = () => {
+	function requestRedraw() {
+		frameCounter.frameRequested()
 		if (!animFrameRequested) {
 			animFrameRequested = true
 			requestAnimationFrame(onAnimationFrame)
 		}
 	}
-	function onAnimationFrame() {
+	/** @param {number} timeStamp */
+	function onAnimationFrame(timeStamp) {
 		animFrameRequested = false
+		frameCounter.frameDrawn(timeStamp)
 		drawLayers()
 		smoothIfNecessary()
 	}
+	this.requestRedraw = requestRedraw
+	this.getFrameTimeDelta = frameCounter.getFrameTimeDelta
 
 	//-------------------
 	// control inner
@@ -191,7 +197,7 @@ export function LocMap(wrap, conv) {
 		curWidth = rect.width
 		curHeight = rect.height
 
-		this.requestRedraw()
+		requestRedraw()
 	}
 
 	/**
@@ -207,7 +213,7 @@ export function LocMap(wrap, conv) {
 		pos_screen2map()
 
 		updateLayers()
-		this.requestRedraw()
+		requestRedraw()
 		this.emit('mapZoom', {})
 	}
 
@@ -233,7 +239,7 @@ export function LocMap(wrap, conv) {
 		pos_screen2map()
 
 		updateLayers()
-		this.requestRedraw()
+		requestRedraw()
 		this.emit('mapMove', {})
 	}
 
@@ -277,6 +283,35 @@ export function LocMap(wrap, conv) {
 	lon = 0
 	lat = 0
 	pos_map2screen()
+}
+
+function FrameCounter() {
+	const frameTimeDeltas = [16, 16, 16, 16, 16]
+	let prevFrameTimeDelta = /**@type {number|null} */ (null)
+	let animFrameID = 0
+
+	function onAnimFrame() {
+		prevFrameTimeDelta = null
+	}
+
+	this.frameRequested = () => {
+		cancelAnimationFrame(animFrameID)
+	}
+	/** @param {number} timeStamp */
+	this.frameDrawn = timeStamp => {
+		cancelAnimationFrame(animFrameID)
+		animFrameID = requestAnimationFrame(onAnimFrame)
+		if (prevFrameTimeDelta !== null) {
+			frameTimeDeltas.push(Math.min(32, timeStamp - prevFrameTimeDelta))
+			frameTimeDeltas.shift()
+		}
+		prevFrameTimeDelta = timeStamp
+	}
+	this.getFrameTimeDelta = () => {
+		let sum = 0
+		for (let i = 0; i < frameTimeDeltas.length; i++) sum += frameTimeDeltas[i]
+		return sum / frameTimeDeltas.length
+	}
 }
 
 /** @type {ProjectionConverter} */
