@@ -1,5 +1,6 @@
 /** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
 /**
+ * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
 export function ControlLayer(opts?: {
@@ -8,6 +9,7 @@ export function ControlLayer(opts?: {
 export class ControlLayer {
     /** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
     /**
+     * @class
      * @param {{doNotInterfere?:boolean}} [opts]
      */
     constructor(opts?: {
@@ -19,6 +21,7 @@ export class ControlLayer {
     unregister: (map: import('./map').LocMap) => void;
 }
 /**
+ * @class
  * @param {string} controlText
  * @param {string} twoFingersText
  * @param {{styles:Record<string,string>}} [opts ]
@@ -28,6 +31,7 @@ export function ControlHintLayer(controlText: string, twoFingersText: string, op
 }): void;
 export class ControlHintLayer {
     /**
+     * @class
      * @param {string} controlText
      * @param {string} twoFingersText
      * @param {{styles:Record<string,string>}} [opts ]
@@ -49,6 +53,32 @@ export class ControlHintLayer {
         controlHint(map: import('./map').LocMap, e: HintData): void;
     };
 }
+export type SingleDownParams = {
+    x: number;
+    y: number;
+    id: number | 'mouse';
+    isSwitching: boolean;
+};
+export type SingleUpParams = {
+    x: number;
+    y: number;
+    id: number | 'mouse';
+    isSwitching: boolean;
+};
+export type SingleMoveParams = {
+    x: number;
+    y: number;
+    id: number | 'mouse';
+};
+export type SingleClickParams = {
+    x: number;
+    y: number;
+    id: number | 'mouse';
+};
+export type SingleHoverParams = {
+    x: number;
+    y: number;
+};
 export type HintData = {
     type: 'use_two_fingers' | 'use_control_to_zoom';
 };

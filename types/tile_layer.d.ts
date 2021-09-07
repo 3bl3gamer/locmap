@@ -1,9 +1,11 @@
 /**
+ * @class
  * @param {import('./tile_container').TileContainer} tileHost
  */
 export function TileLayer(tileHost: import('./tile_container').TileContainer): void;
 export class TileLayer {
     /**
+     * @class
      * @param {import('./tile_container').TileContainer} tileHost
      */
     constructor(tileHost: import('./tile_container').TileContainer);

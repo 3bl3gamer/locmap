@@ -1,10 +1,12 @@
 /**
+ * @class
  * @param {number} tileW
  * @param {(x:number, y:number, z:number) => string} pathFunc
  */
 export function TileContainer(tileW: number, pathFunc: (x: number, y: number, z: number) => string): void;
 export class TileContainer {
     /**
+     * @class
      * @param {number} tileW
      * @param {(x:number, y:number, z:number) => string} pathFunc
      */

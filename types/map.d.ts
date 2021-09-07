@@ -8,15 +8,19 @@
  * }} ProjectionConverter
  */
 /**
+ * @typedef {(map:LocMap, params:any) => unknown} MapEventHandler
+ */
+/**
  * @typedef {{
  *   register?(map:LocMap): unknown,
  *   unregister?(map:LocMap): unknown,
  *   update?(map:LocMap): unknown,
  *   redraw?(map:LocMap): unknown,
- *   onEvent?: Record<string, (map:LocMap, params:any) => unknown>,
+ *   onEvent?: Record<string, MapEventHandler>,
  * }} MapLayer
  */
 /**
+ * @class
  * @param {HTMLElement} wrap
  * @param {ProjectionConverter} conv
  */
@@ -32,15 +36,19 @@ export class LocMap {
      * }} ProjectionConverter
      */
     /**
+     * @typedef {(map:LocMap, params:any) => unknown} MapEventHandler
+     */
+    /**
      * @typedef {{
      *   register?(map:LocMap): unknown,
      *   unregister?(map:LocMap): unknown,
      *   update?(map:LocMap): unknown,
      *   redraw?(map:LocMap): unknown,
-     *   onEvent?: Record<string, (map:LocMap, params:any) => unknown>,
+     *   onEvent?: Record<string, MapEventHandler>,
      * }} MapLayer
      */
     /**
+     * @class
      * @param {HTMLElement} wrap
      * @param {ProjectionConverter} conv
      */
@@ -131,10 +139,11 @@ export type ProjectionConverter = {
     lat2y(lat: number, zoom: number): number;
     meters2pixCoef(lat: number, zoom: number): number;
 };
+export type MapEventHandler = (map: LocMap, params: any) => unknown;
 export type MapLayer = {
     register?(map: LocMap): unknown;
     unregister?(map: LocMap): unknown;
     update?(map: LocMap): unknown;
     redraw?(map: LocMap): unknown;
-    onEvent?: Record<string, (map: LocMap, params: any) => unknown>;
+    onEvent?: Record<string, MapEventHandler>;
 };

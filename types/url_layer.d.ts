@@ -1,3 +1,4 @@
+/** @class */
 export function URLLayer(): void;
 export class URLLayer {
     /** @param {import('./map').LocMap} map */

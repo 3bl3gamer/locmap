@@ -1,6 +1,14 @@
 import { controlDouble } from 'js-control'
 
 /**
+ * @typedef {{x:number, y:number, id:number|'mouse', isSwitching:boolean }} SingleDownParams
+ * @typedef {{x:number, y:number, id:number|'mouse', isSwitching:boolean }} SingleUpParams
+ * @typedef {{x:number, y:number, id:number|'mouse' }} SingleMoveParams
+ * @typedef {{x:number, y:number, id:number|'mouse' }} SingleClickParams
+ * @typedef {{x:number, y:number}} SingleHoverParams
+ */
+
+/**
  * @param {number} x1
  * @param {number} y1
  * @param {number} x2
@@ -53,7 +61,7 @@ export function ControlLayer(opts) {
 	let control
 	let mouseX = NaN
 	let mouseY = NaN
-	let mouseIsDown = false
+	let mouseSingleDistance = 0
 
 	let lastDoubleTouch_cx = 0
 	let lastDoubleTouch_cy = 0
@@ -135,15 +143,15 @@ export function ControlLayer(opts) {
 			callbacks: {
 				singleDown(e, id, x, y, isSwitching) {
 					const isMouse = id === 'mouse'
-					mouseIsDown = isMouse
 					setCorrectedSinglePos(x, y, e.timeStamp)
+					mouseSingleDistance = 0
 					if (isSwitching) moveRecordedMousePos()
 					if (!isSwitching) {
 						recordMousePos(e.timeStamp)
 						map.applyMoveInertia(0, 0)
 						map.applyZoomInertia(0, 0, 1)
 					}
-					map.emit('singleDown', { x, y, isMouse, isSwitching })
+					map.emit('singleDown', /**@type {SingleDownParams}*/ ({ x, y, id, isSwitching }))
 					return true
 				},
 				singleMove(e, id, x, y) {
@@ -154,19 +162,23 @@ export function ControlLayer(opts) {
 						const oldX = mouseX
 						const oldY = mouseY
 						setCorrectedSinglePos(x, y, e.timeStamp)
-						if (mouseIsDown || !isMouse) map.move(mouseX - oldX, mouseY - oldY)
+						mouseSingleDistance += point_distance(oldX, oldY, mouseX, mouseY)
+						map.move(mouseX - oldX, mouseY - oldY)
 						recordMousePos(e.timeStamp)
-						map.emit('singleMove', { x, y, isMouse: isMouse, isDown: mouseIsDown })
+						map.emit('singleMove', /**@type {SingleMoveParams}*/ ({ x, y, id }))
 					}
-					return mouseIsDown || !isMouse
+					return true
 				},
 				singleUp(e, id, isSwitching) {
 					const isMouse = id === 'mouse'
-					const wasDown = mouseIsDown
-					mouseIsDown = false
-					if ((wasDown || !isMouse) && !isSwitching) applyInertia(map)
-					map.emit('singleUp', { x: mouseX, y: mouseY, isMouse, wasDown, isSwitching })
-					return wasDown || !isMouse
+					if (!isSwitching) applyInertia(map)
+					map.emit(
+						'singleUp',
+						/**@type {SingleUpParams}*/ ({ x: mouseX, y: mouseY, id, isSwitching }),
+					)
+					if (mouseSingleDistance < 5 && !isSwitching)
+						map.emit('singleClick', /**@type {SingleClickParams}*/ ({ x: mouseX, y: mouseY, id }))
+					return true
 				},
 				doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
 					mouseX = (x0 + x1) * 0.5
@@ -213,6 +225,9 @@ export function ControlLayer(opts) {
 						map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_control_to_zoom' }))
 						return false
 					}
+				},
+				singleHover(e, x, y) {
+					map.emit('singleHover', /**@type {SingleHoverParams}*/ ({ x, y }))
 				},
 			},
 			startElem: map.getCanvas(),

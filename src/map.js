@@ -9,12 +9,16 @@
  */
 
 /**
+ * @typedef {(map:LocMap, params:any) => unknown} MapEventHandler
+ */
+
+/**
  * @typedef {{
  *   register?(map:LocMap): unknown,
  *   unregister?(map:LocMap): unknown,
  *   update?(map:LocMap): unknown,
  *   redraw?(map:LocMap): unknown,
- *   onEvent?: Record<string, (map:LocMap, params:any) => unknown>,
+ *   onEvent?: Record<string, MapEventHandler>,
  * }} MapLayer
  */
 
