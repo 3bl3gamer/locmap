@@ -4,7 +4,7 @@ Simple modular tile map engine.
 
 4.3 KiB after min+gizp, [more](#size).
 
-[Example](https://3bl3gamer.github.io/loclog/examples/)
+[Example](https://3bl3gamer.github.io/locmap/examples/)
 
 ## Usage
 

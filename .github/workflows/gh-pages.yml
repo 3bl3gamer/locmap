@@ -1,0 +1,59 @@
+name: CI
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push events but only for the master branch
+  push:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v2
+        with:
+          node-version: 15.14.0
+
+      - run: npm install #--release
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+
+      - run: npm run build-examples
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+
+      - name: Git user info
+        run: |
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git config --global user.name "${GITHUB_ACTOR}"
+
+      - name: Preparing files
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          mkdir ./_new_content
+          mv ./examples/dist ./_new_content/examples
+          mv ./README* ./_new_content
+          git checkout --force gh-pages || git checkout --orphan gh-pages
+          find . -not -regex '\./\(\.git\|_new_content\)\(/.*\)?' -delete
+          mv ./_new_content/* .
+          rm -r ./_new_content
+
+      - name: Pushing build
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+        run: |
+          git add --all
+          git diff-index --quiet --cached HEAD -- && echo "no changes" && exit 0
+          git commit -m "Update on $(date +'%Y-%m-%d %H:%M:%S')"
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git gh-pages
