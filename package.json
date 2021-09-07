@@ -9,7 +9,7 @@
     "generate-types": "tsc src/index.js --allowJs --declaration --declarationDir types --emitDeclarationOnly"
   },
   "author": "3bl3gamer",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-html": "^0.2.3",
     "@rollup/plugin-node-resolve": "^13.0.4",

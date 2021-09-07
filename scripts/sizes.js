@@ -78,25 +78,30 @@ export default async function (commandOptions) {
 	const baseSizes = await getSizes(`
 import { LocMap, TileContainer, TileLayer, ProjectionMercator } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new TileContainer(256, (x, y, z) => \`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
+const tileContainer = new TileContainer(256, (x, y, z) =>
+	\`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
 map.register(new TileLayer(tileContainer))`)
 
 	const regularSizes = await getSizes(`
 import { LocMap, ControlLayer, ControlHintLayer, TileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new TileContainer(256, (x, y, z) => \`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
+const tileContainer = new TileContainer(256, (x, y, z) =>
+	\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
 map.register(new TileLayer(tileContainer))
-map.register(new ControlLayer())`)
+map.register(new ControlLayer())
+appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
 
 	const fullSizes = await getSizes(`
 import { LocMap, ControlLayer, ControlHintLayer, TileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new TileContainer(256, (x, y, z) => \`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
+const tileContainer = new TileContainer(256, (x, y, z) =>
+	\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
 map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())
 map.register(new ControlHintLayer('hold Ctrl to zoom', 'use two fingers to drag'))
 map.register(new LocationLayer())
-map.register(new URLLayer())`)
+map.register(new URLLayer())
+appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
 
 	console.log(`${' '.repeat(7)} bundled minfied min+gz`)
 	for (const [name, sizes] of [

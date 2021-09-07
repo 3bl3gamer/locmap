@@ -7,6 +7,8 @@ import {
 	ProjectionMercator,
 	LocationLayer,
 	URLLayer,
+	oneOf,
+	appendCredit,
 } from '../../src'
 
 document.body.style.width = '100vw'
@@ -16,7 +18,7 @@ document.body.style.margin = '0'
 const map = new LocMap(document.body, ProjectionMercator)
 const tileContainer = new TileContainer(
 	256,
-	(x, y, z) => `http://a.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+	(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
 )
 map.register(new TileLayer(tileContainer))
 let controlLayer = new ControlLayer()
@@ -25,6 +27,8 @@ map.register(new ControlHintLayer('hold Ctrl to zoom', 'use two fingers to drag'
 map.register(new LocationLayer())
 map.register(new URLLayer())
 map.resize()
+const credit = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+appendCredit(document.body, credit)
 window.onresize = () => map.resize()
 
 const uiWrap = document.createElement('div')
