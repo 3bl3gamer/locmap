@@ -16,11 +16,10 @@
 	 * @typedef {(map:LocMap, params:T) => unknown} MapEventHandler
 	 */
 
-	/** @typedef {import('./common_types').MapEventHandlersMap} MapEventHandlersMap */
 	/**
 	 * @typedef {{
-	 *   [K in keyof MapEventHandlersMap]?:
-	 *     MapEventHandler<MapEventHandlersMap[K]>
+	 *   [K in keyof import('./common_types').MapEventHandlersMap]?:
+	 *     MapEventHandler<import('./common_types').MapEventHandlersMap[K]>
 	 * } & Record<string, MapEventHandler<any>>} MapEventHandlers
 	 */
 
@@ -292,7 +291,9 @@
 		/**
 		 * @template {string} K
 		 * @param {K} name
-		 * @param {K extends keyof MapEventHandlersMap ? MapEventHandlersMap[K] : unknown} params
+		 * @param {K extends keyof import('./common_types').MapEventHandlersMap
+		 *           ? import('./common_types').MapEventHandlersMap[K]
+		 *           : unknown} params
 		 */
 		this.emit = (name, params) => {
 			for (let i = 0; i < layers.length; i++) {
@@ -1428,4 +1429,4 @@
 	};
 
 }());
-//# sourceMappingURL=bundle.0250c768.js.map
+//# sourceMappingURL=bundle.31c4a8c9.js.map
