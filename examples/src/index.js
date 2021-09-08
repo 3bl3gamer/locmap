@@ -11,8 +11,10 @@ import {
 	appendCredit,
 } from '../../src'
 
-document.body.style.width = '100vw'
-document.body.style.height = '100vh'
+document.documentElement.style.height = '100%'
+document.body.style.position = 'relative'
+document.body.style.width = '100%'
+document.body.style.height = '100%'
 document.body.style.margin = '0'
 
 const map = new LocMap(document.body, ProjectionMercator)
@@ -28,8 +30,8 @@ map.register(new LocationLayer())
 map.register(new URLLayer())
 map.resize()
 const credit = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-appendCredit(document.body, credit)
-window.onresize = () => map.resize()
+appendCredit(map.getWrap(), credit)
+window.onresize = map.resize
 
 const uiWrap = document.createElement('div')
 uiWrap.style.position = 'absolute'

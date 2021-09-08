@@ -13,6 +13,6 @@ export class TileLayer {
     unregister: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
     redraw: (map: import('./map').LocMap) => void;
-    /** @param {import('./map').LocMap} map */
-    update: (map: import('./map').LocMap) => void;
+    /** @type {import('./map').MapEventHandlers} */
+    onEvent: import('./map').MapEventHandlers;
 }

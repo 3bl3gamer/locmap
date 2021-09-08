@@ -1,8 +1,6 @@
-# LocMap
-
 Simple modular tile map engine.
 
-4.3 KiB after min+gizp, [more](#size).
+4.5 KiB after min+gizp, [more](#size).
 
 [Example](https://3bl3gamer.github.io/locmap/examples/)
 
@@ -21,13 +19,14 @@ map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())
 appendCredit(document.body,
     '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
+window.onresize = map.resize
 ```
 
 ## Size
 
 ```
         bundled minfied min+gz
-base      15.0     5.5    2.3  KiB
-regular   32.2    11.0    4.3  KiB
-full      37.4    13.4    5.3  KiB
+base      16.5     5.7    2.4  KiB
+regular   33.1    11.3    4.5  KiB
+full      38.3    13.7    5.4  KiB
 ```

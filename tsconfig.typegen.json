@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig",
+  "include": ["src/index.js"],
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "./types",
+    "emitDeclarationOnly": true
+  }
+}

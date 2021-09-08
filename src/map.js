@@ -9,7 +9,16 @@
  */
 
 /**
- * @typedef {(map:LocMap, params:any) => unknown} MapEventHandler
+ * @template T
+ * @typedef {(map:LocMap, params:T) => unknown} MapEventHandler
+ */
+
+/** @typedef {import('./common_types').MapEventHandlersMap} MapEventHandlersMap */
+/**
+ * @typedef {{
+ *   [K in keyof MapEventHandlersMap]?:
+ *     MapEventHandler<MapEventHandlersMap[K]>
+ * } & Record<string, MapEventHandler<any>>} MapEventHandlers
  */
 
 /**
@@ -18,7 +27,7 @@
  *   unregister?(map:LocMap): unknown,
  *   update?(map:LocMap): unknown,
  *   redraw?(map:LocMap): unknown,
- *   onEvent?: Record<string, MapEventHandler>,
+ *   onEvent?: MapEventHandlers,
  * }} MapLayer
  */
 
@@ -208,18 +217,18 @@ export function LocMap(wrap, conv) {
 	/**
 	 * @param {number} x
 	 * @param {number} y
-	 * @param {number} d
+	 * @param {number} delta
 	 */
-	this.zoom = (x, y, d) => {
-		zoom = Math.max(minZoom, zoom * d)
+	this.zoom = (x, y, delta) => {
+		zoom = Math.max(minZoom, zoom * delta)
 		level = (Math.log(zoom) / Math.log(2) + 0.5) | 0
-		xShift += (-x + curWidth / 2 - xShift) * (1 - d)
-		yShift += (-y + curHeight / 2 - yShift) * (1 - d)
+		xShift += (-x + curWidth / 2 - xShift) * (1 - delta)
+		yShift += (-y + curHeight / 2 - yShift) * (1 - delta)
 		pos_screen2map()
 
 		updateLayers()
 		requestRedraw()
-		this.emit('mapZoom', {})
+		this.emit('mapZoom', { x, y, delta })
 	}
 
 	/**
@@ -245,7 +254,7 @@ export function LocMap(wrap, conv) {
 
 		updateLayers()
 		requestRedraw()
-		this.emit('mapMove', {})
+		this.emit('mapMove', { dx, dy })
 	}
 
 	/**
@@ -273,9 +282,14 @@ export function LocMap(wrap, conv) {
 	//------------
 	// events
 	//------------
+
+	// TODO: if it could be overloaded, `K` may be `keyof MapEventHandlersMap`
+	//       and editor will provide `name` completions (like with `addEventListener`)
+	//       https://github.com/microsoft/TypeScript/issues/25590
 	/**
-	 * @param {string} name
-	 * @param {unknown} params
+	 * @template {string} K
+	 * @param {K} name
+	 * @param {K extends keyof MapEventHandlersMap ? MapEventHandlersMap[K] : unknown} params
 	 */
 	this.emit = (name, params) => {
 		for (let i = 0; i < layers.length; i++) {

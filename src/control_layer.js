@@ -1,14 +1,6 @@
 import { controlDouble } from 'js-control'
 
 /**
- * @typedef {{x:number, y:number, id:number|'mouse', isSwitching:boolean }} SingleDownParams
- * @typedef {{x:number, y:number, id:number|'mouse', isSwitching:boolean }} SingleUpParams
- * @typedef {{x:number, y:number, id:number|'mouse' }} SingleMoveParams
- * @typedef {{x:number, y:number, id:number|'mouse' }} SingleClickParams
- * @typedef {{x:number, y:number}} SingleHoverParams
- */
-
-/**
  * @param {number} x1
  * @param {number} y1
  * @param {number} x2
@@ -48,8 +40,6 @@ function getApproximatedDelta(items, attr) {
 	// const b = (sumy - a * sumx) / n
 	return a
 }
-
-/** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
 
 /**
  * @class
@@ -151,13 +141,13 @@ export function ControlLayer(opts) {
 						map.applyMoveInertia(0, 0)
 						map.applyZoomInertia(0, 0, 1)
 					}
-					map.emit('singleDown', /**@type {SingleDownParams}*/ ({ x, y, id, isSwitching }))
+					map.emit('singleDown', { x, y, id, isSwitching })
 					return true
 				},
 				singleMove(e, id, x, y) {
 					const isMouse = id === 'mouse'
 					if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
-						map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_two_fingers' }))
+						map.emit('controlHint', { type: 'use_two_fingers' })
 					} else {
 						const oldX = mouseX
 						const oldY = mouseY
@@ -165,19 +155,16 @@ export function ControlLayer(opts) {
 						mouseSingleDistance += point_distance(oldX, oldY, mouseX, mouseY)
 						map.move(mouseX - oldX, mouseY - oldY)
 						recordMousePos(e.timeStamp)
-						map.emit('singleMove', /**@type {SingleMoveParams}*/ ({ x, y, id }))
+						map.emit('singleMove', { x, y, id })
 					}
 					return true
 				},
 				singleUp(e, id, isSwitching) {
 					const isMouse = id === 'mouse'
 					if (!isSwitching) applyInertia(map)
-					map.emit(
-						'singleUp',
-						/**@type {SingleUpParams}*/ ({ x: mouseX, y: mouseY, id, isSwitching }),
-					)
+					map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching })
 					if (mouseSingleDistance < 5 && !isSwitching)
-						map.emit('singleClick', /**@type {SingleClickParams}*/ ({ x: mouseX, y: mouseY, id }))
+						map.emit('singleClick', { x: mouseX, y: mouseY, id })
 					return true
 				},
 				doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
@@ -189,7 +176,7 @@ export function ControlLayer(opts) {
 						recordMousePos(e.timeStamp)
 						recordTouchDist(e.timeStamp)
 					}
-					map.emit('doubleDown', {})
+					map.emit('doubleDown', { id0, x0, y0, id1, x1, y1, isSwitching })
 					return true
 				},
 				doubleMove(e, id0, x0, y0, id1, x1, y1) {
@@ -205,7 +192,7 @@ export function ControlLayer(opts) {
 					recordTouchDist(e.timeStamp)
 					lastDoubleTouch_cx = cx
 					lastDoubleTouch_cy = cy
-					map.emit('doubleMove', {})
+					map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 })
 					return true
 				},
 				doubleUp(e, id0, id1, isSwitching) {
@@ -214,7 +201,7 @@ export function ControlLayer(opts) {
 					lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x')
 					lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y')
 					lastDoubleTouch_stamp = e.timeStamp
-					map.emit('doubleUp', {})
+					map.emit('doubleUp', { id0, id1, isSwitching })
 					return true
 				},
 				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
@@ -222,12 +209,12 @@ export function ControlLayer(opts) {
 						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250))
 						return true
 					} else {
-						map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_control_to_zoom' }))
+						map.emit('controlHint', { type: 'use_control_to_zoom' })
 						return false
 					}
 				},
 				singleHover(e, x, y) {
-					map.emit('singleHover', /**@type {SingleHoverParams}*/ ({ x, y }))
+					map.emit('singleHover', { x, y })
 				},
 			},
 			startElem: map.getCanvas(),
@@ -291,13 +278,10 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 		map.getWrap().removeChild(elem)
 	}
 
+	/** @type {import('./map').MapEventHandlers} */
 	this.onEvent = {
 		mapMove: hideHint,
 		mapZoom: hideHint,
-		/**
-		 * @param {import('./map').LocMap} map
-		 * @param {HintData} e
-		 */
 		controlHint(map, e) {
 			switch (e.type) {
 				case 'use_control_to_zoom':

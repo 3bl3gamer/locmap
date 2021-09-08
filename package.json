@@ -1,12 +1,12 @@
 {
   "name": "locmap",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "src/index.js",
   "types": "types/index.d.ts",
   "scripts": {
     "build-examples": "rollup examples/src/index.js --config examples/rollup.config.js",
-    "generate-types": "tsc src/index.js --allowJs --declaration --declarationDir types --emitDeclarationOnly"
+    "generate-types": "tsc --project tsconfig.typegen.json"
   },
   "author": "3bl3gamer",
   "license": "MIT",

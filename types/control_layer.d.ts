@@ -1,20 +1,18 @@
-/** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
 /**
  * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
 export function ControlLayer(opts?: {
-    doNotInterfere?: boolean;
-}): void;
+    doNotInterfere?: boolean | undefined;
+} | undefined): void;
 export class ControlLayer {
-    /** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
     /**
      * @class
      * @param {{doNotInterfere?:boolean}} [opts]
      */
     constructor(opts?: {
-        doNotInterfere?: boolean;
-    });
+        doNotInterfere?: boolean | undefined;
+    } | undefined);
     /** @param {import('./map').LocMap} map */
     register: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
@@ -28,7 +26,7 @@ export class ControlLayer {
  */
 export function ControlHintLayer(controlText: string, twoFingersText: string, opts?: {
     styles: Record<string, string>;
-}): void;
+} | undefined): void;
 export class ControlHintLayer {
     /**
      * @class
@@ -38,47 +36,11 @@ export class ControlHintLayer {
      */
     constructor(controlText: string, twoFingersText: string, opts?: {
         styles: Record<string, string>;
-    });
+    } | undefined);
     /** @param {import('./map').LocMap} map */
     register: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
     unregister: (map: import('./map').LocMap) => void;
-    onEvent: {
-        mapMove: () => void;
-        mapZoom: () => void;
-        /**
-         * @param {import('./map').LocMap} map
-         * @param {HintData} e
-         */
-        controlHint(map: import('./map').LocMap, e: HintData): void;
-    };
+    /** @type {import('./map').MapEventHandlers} */
+    onEvent: import('./map').MapEventHandlers;
 }
-export type SingleDownParams = {
-    x: number;
-    y: number;
-    id: number | 'mouse';
-    isSwitching: boolean;
-};
-export type SingleUpParams = {
-    x: number;
-    y: number;
-    id: number | 'mouse';
-    isSwitching: boolean;
-};
-export type SingleMoveParams = {
-    x: number;
-    y: number;
-    id: number | 'mouse';
-};
-export type SingleClickParams = {
-    x: number;
-    y: number;
-    id: number | 'mouse';
-};
-export type SingleHoverParams = {
-    x: number;
-    y: number;
-};
-export type HintData = {
-    type: 'use_two_fingers' | 'use_control_to_zoom';
-};

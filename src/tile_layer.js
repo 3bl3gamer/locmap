@@ -41,6 +41,29 @@ export function TileLayer(tileHost) {
 		//console.log(scale, draw_i_from, draw_j_from, draw_i_numb, draw_j_numb)
 	}
 
+	let shouldLoadTiles = true
+	let lastZoomAt = 0
+	let curZoomTotalDelta = 1
+	let tileLoadOffTimeout = -1
+	let tileLoadPausedAt = 0
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} durationMS
+	 */
+	function pauseTileLoad(map, durationMS) {
+		if (shouldLoadTiles) {
+			// console.log('paused')
+			tileLoadPausedAt = performance.now()
+			shouldLoadTiles = false
+		}
+		clearTimeout(tileLoadOffTimeout)
+		tileLoadOffTimeout = window.setTimeout(() => {
+			shouldLoadTiles = true
+			map.requestRedraw()
+			// console.log('unpaused')
+		}, durationMS)
+	}
+
 	/**
 	 * @param {import('./map').LocMap} map
 	 * @param {number} x
@@ -49,17 +72,16 @@ export function TileLayer(tileHost) {
 	 * @param {number} i
 	 * @param {number} j
 	 */
-	const drawOneTile = (map, x, y, scale, i, j) => {
-		if (!tileHost) return
+	function drawOneTile(map, x, y, scale, i, j) {
 		const level = map.getLevel() + levelDifference
 
-		let drawed = tileHost.tryDrawTile(map, x, y, scale, i, j, level, true)
-		if (drawed) return
+		let drawn = tileHost.tryDrawTile(map, x, y, scale, i, j, level, shouldLoadTiles)
+		if (drawn) return
 
 		for (let sub = 1; sub <= 2; sub++) {
 			const n = 1 << sub
-			drawed = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub) //prettier-ignore
-			if (drawed) return
+			drawn = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub) //prettier-ignore
+			if (drawn) return
 		}
 
 		tileHost.tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1) //prettier-ignore
@@ -70,12 +92,11 @@ export function TileLayer(tileHost) {
 
 	/** @param {import('./map').LocMap} map */
 	this.unregister = map => {
-		if (tileHost) tileHost.clearCache()
+		tileHost.clearCache()
 	}
 
 	/** @param {import('./map').LocMap} map */
-	this.redraw = function (map) {
-		if (!tileHost) return
+	this.redraw = map => {
 		const rc = map.get2dContext()
 		if (rc === null) return
 		rc.save()
@@ -92,6 +113,18 @@ export function TileLayer(tileHost) {
 		rc.restore()
 	}
 
-	/** @param {import('./map').LocMap} map */
-	this.update = function (map) {}
+	/** @type {import('./map').MapEventHandlers} */
+	this.onEvent = {
+		mapZoom(map, { delta }) {
+			const now = performance.now()
+			if (now - lastZoomAt > 250) curZoomTotalDelta = 1 //new zoom action started
+			lastZoomAt = now
+			curZoomTotalDelta *= delta
+			// if zoomed enough
+			if (curZoomTotalDelta < 1 / 1.2 || curZoomTotalDelta > 1.2) {
+				// unpausing periodically in case of long slow zooming
+				if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80)
+			}
+		},
+	}
 }
