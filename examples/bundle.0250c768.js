@@ -12,7 +12,16 @@
 	 */
 
 	/**
-	 * @typedef {(map:LocMap, params:any) => unknown} MapEventHandler
+	 * @template T
+	 * @typedef {(map:LocMap, params:T) => unknown} MapEventHandler
+	 */
+
+	/** @typedef {import('./common_types').MapEventHandlersMap} MapEventHandlersMap */
+	/**
+	 * @typedef {{
+	 *   [K in keyof MapEventHandlersMap]?:
+	 *     MapEventHandler<MapEventHandlersMap[K]>
+	 * } & Record<string, MapEventHandler<any>>} MapEventHandlers
 	 */
 
 	/**
@@ -21,7 +30,7 @@
 	 *   unregister?(map:LocMap): unknown,
 	 *   update?(map:LocMap): unknown,
 	 *   redraw?(map:LocMap): unknown,
-	 *   onEvent?: Record<string, MapEventHandler>,
+	 *   onEvent?: MapEventHandlers,
 	 * }} MapLayer
 	 */
 
@@ -211,18 +220,18 @@
 		/**
 		 * @param {number} x
 		 * @param {number} y
-		 * @param {number} d
+		 * @param {number} delta
 		 */
-		this.zoom = (x, y, d) => {
-			zoom = Math.max(minZoom, zoom * d);
+		this.zoom = (x, y, delta) => {
+			zoom = Math.max(minZoom, zoom * delta);
 			level = (Math.log(zoom) / Math.log(2) + 0.5) | 0;
-			xShift += (-x + curWidth / 2 - xShift) * (1 - d);
-			yShift += (-y + curHeight / 2 - yShift) * (1 - d);
+			xShift += (-x + curWidth / 2 - xShift) * (1 - delta);
+			yShift += (-y + curHeight / 2 - yShift) * (1 - delta);
 			pos_screen2map();
 
 			updateLayers();
 			requestRedraw();
-			this.emit('mapZoom', {});
+			this.emit('mapZoom', { x, y, delta });
 		};
 
 		/**
@@ -248,7 +257,7 @@
 
 			updateLayers();
 			requestRedraw();
-			this.emit('mapMove', {});
+			this.emit('mapMove', { dx, dy });
 		};
 
 		/**
@@ -276,9 +285,14 @@
 		//------------
 		// events
 		//------------
+
+		// TODO: if it could be overloaded, `K` may be `keyof MapEventHandlersMap`
+		//       and editor will provide `name` completions (like with `addEventListener`)
+		//       https://github.com/microsoft/TypeScript/issues/25590
 		/**
-		 * @param {string} name
-		 * @param {unknown} params
+		 * @template {string} K
+		 * @param {K} name
+		 * @param {K extends keyof MapEventHandlersMap ? MapEventHandlersMap[K] : unknown} params
 		 */
 		this.emit = (name, params) => {
 			for (let i = 0; i < layers.length; i++) {
@@ -632,14 +646,6 @@
 	}
 
 	/**
-	 * @typedef {{x:number, y:number, id:number|'mouse', isSwitching:boolean }} SingleDownParams
-	 * @typedef {{x:number, y:number, id:number|'mouse', isSwitching:boolean }} SingleUpParams
-	 * @typedef {{x:number, y:number, id:number|'mouse' }} SingleMoveParams
-	 * @typedef {{x:number, y:number, id:number|'mouse' }} SingleClickParams
-	 * @typedef {{x:number, y:number}} SingleHoverParams
-	 */
-
-	/**
 	 * @param {number} x1
 	 * @param {number} y1
 	 * @param {number} x2
@@ -679,8 +685,6 @@
 		// const b = (sumy - a * sumx) / n
 		return a
 	}
-
-	/** @typedef {{type: 'use_two_fingers'|'use_control_to_zoom'}} HintData */
 
 	/**
 	 * @class
@@ -781,13 +785,13 @@
 							map.applyMoveInertia(0, 0);
 							map.applyZoomInertia(0, 0, 1);
 						}
-						map.emit('singleDown', /**@type {SingleDownParams}*/ ({ x, y, id, isSwitching }));
+						map.emit('singleDown', { x, y, id, isSwitching });
 						return true
 					},
 					singleMove(e, id, x, y) {
 						const isMouse = id === 'mouse';
 						if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
-							map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_two_fingers' }));
+							map.emit('controlHint', { type: 'use_two_fingers' });
 						} else {
 							const oldX = mouseX;
 							const oldY = mouseY;
@@ -795,18 +799,15 @@
 							mouseSingleDistance += point_distance(oldX, oldY, mouseX, mouseY);
 							map.move(mouseX - oldX, mouseY - oldY);
 							recordMousePos(e.timeStamp);
-							map.emit('singleMove', /**@type {SingleMoveParams}*/ ({ x, y, id }));
+							map.emit('singleMove', { x, y, id });
 						}
 						return true
 					},
 					singleUp(e, id, isSwitching) {
 						if (!isSwitching) applyInertia(map);
-						map.emit(
-							'singleUp',
-							/**@type {SingleUpParams}*/ ({ x: mouseX, y: mouseY, id, isSwitching }),
-						);
+						map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching });
 						if (mouseSingleDistance < 5 && !isSwitching)
-							map.emit('singleClick', /**@type {SingleClickParams}*/ ({ x: mouseX, y: mouseY, id }));
+							map.emit('singleClick', { x: mouseX, y: mouseY, id });
 						return true
 					},
 					doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
@@ -818,7 +819,7 @@
 							recordMousePos(e.timeStamp);
 							recordTouchDist(e.timeStamp);
 						}
-						map.emit('doubleDown', {});
+						map.emit('doubleDown', { id0, x0, y0, id1, x1, y1, isSwitching });
 						return true
 					},
 					doubleMove(e, id0, x0, y0, id1, x1, y1) {
@@ -834,7 +835,7 @@
 						recordTouchDist(e.timeStamp);
 						lastDoubleTouch_cx = cx;
 						lastDoubleTouch_cy = cy;
-						map.emit('doubleMove', {});
+						map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 });
 						return true
 					},
 					doubleUp(e, id0, id1, isSwitching) {
@@ -843,7 +844,7 @@
 						lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x');
 						lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y');
 						lastDoubleTouch_stamp = e.timeStamp;
-						map.emit('doubleUp', {});
+						map.emit('doubleUp', { id0, id1, isSwitching });
 						return true
 					},
 					wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
@@ -851,12 +852,12 @@
 							map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250));
 							return true
 						} else {
-							map.emit('controlHint', /**@type {HintData}*/ ({ type: 'use_control_to_zoom' }));
+							map.emit('controlHint', { type: 'use_control_to_zoom' });
 							return false
 						}
 					},
 					singleHover(e, x, y) {
-						map.emit('singleHover', /**@type {SingleHoverParams}*/ ({ x, y }));
+						map.emit('singleHover', { x, y });
 					},
 				},
 				startElem: map.getCanvas(),
@@ -920,13 +921,10 @@
 			map.getWrap().removeChild(elem);
 		};
 
+		/** @type {import('./map').MapEventHandlers} */
 		this.onEvent = {
 			mapMove: hideHint,
 			mapZoom: hideHint,
-			/**
-			 * @param {import('./map').LocMap} map
-			 * @param {HintData} e
-			 */
 			controlHint(map, e) {
 				switch (e.type) {
 					case 'use_control_to_zoom':
@@ -1133,6 +1131,29 @@
 			//console.log(scale, draw_i_from, draw_j_from, draw_i_numb, draw_j_numb)
 		}
 
+		let shouldLoadTiles = true;
+		let lastZoomAt = 0;
+		let curZoomTotalDelta = 1;
+		let tileLoadOffTimeout = -1;
+		let tileLoadPausedAt = 0;
+		/**
+		 * @param {import('./map').LocMap} map
+		 * @param {number} durationMS
+		 */
+		function pauseTileLoad(map, durationMS) {
+			if (shouldLoadTiles) {
+				// console.log('paused')
+				tileLoadPausedAt = performance.now();
+				shouldLoadTiles = false;
+			}
+			clearTimeout(tileLoadOffTimeout);
+			tileLoadOffTimeout = window.setTimeout(() => {
+				shouldLoadTiles = true;
+				map.requestRedraw();
+				// console.log('unpaused')
+			}, durationMS);
+		}
+
 		/**
 		 * @param {import('./map').LocMap} map
 		 * @param {number} x
@@ -1141,33 +1162,31 @@
 		 * @param {number} i
 		 * @param {number} j
 		 */
-		const drawOneTile = (map, x, y, scale, i, j) => {
-			if (!tileHost) return
+		function drawOneTile(map, x, y, scale, i, j) {
 			const level = map.getLevel() + levelDifference;
 
-			let drawed = tileHost.tryDrawTile(map, x, y, scale, i, j, level, true);
-			if (drawed) return
+			let drawn = tileHost.tryDrawTile(map, x, y, scale, i, j, level, shouldLoadTiles);
+			if (drawn) return
 
 			for (let sub = 1; sub <= 2; sub++) {
 				const n = 1 << sub;
-				drawed = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub); //prettier-ignore
-				if (drawed) return
+				drawn = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub); //prettier-ignore
+				if (drawn) return
 			}
 
 			tileHost.tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1); //prettier-ignore
 			tileHost.tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1); //prettier-ignore
 			tileHost.tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1); //prettier-ignore
 			tileHost.tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1); //prettier-ignore
-		};
+		}
 
 		/** @param {import('./map').LocMap} map */
 		this.unregister = map => {
-			if (tileHost) tileHost.clearCache();
+			tileHost.clearCache();
 		};
 
 		/** @param {import('./map').LocMap} map */
-		this.redraw = function (map) {
-			if (!tileHost) return
+		this.redraw = map => {
 			const rc = map.get2dContext();
 			if (rc === null) return
 			rc.save();
@@ -1184,8 +1203,20 @@
 			rc.restore();
 		};
 
-		/** @param {import('./map').LocMap} map */
-		this.update = function (map) {};
+		/** @type {import('./map').MapEventHandlers} */
+		this.onEvent = {
+			mapZoom(map, { delta }) {
+				const now = performance.now();
+				if (now - lastZoomAt > 250) curZoomTotalDelta = 1; //new zoom action started
+				lastZoomAt = now;
+				curZoomTotalDelta *= delta;
+				// if zoomed enough
+				if (curZoomTotalDelta < 1 / 1.2 || curZoomTotalDelta > 1.2) {
+					// unpausing periodically in case of long slow zooming
+					if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80);
+				}
+			},
+		};
 	}
 
 	/** @param {import('./map').LocMap} map */
@@ -1353,8 +1384,10 @@
 		wrap.appendChild(elem);
 	}
 
-	document.body.style.width = '100vw';
-	document.body.style.height = '100vh';
+	document.documentElement.style.height = '100%';
+	document.body.style.position = 'relative';
+	document.body.style.width = '100%';
+	document.body.style.height = '100%';
 	document.body.style.margin = '0';
 
 	const map = new LocMap(document.body, ProjectionMercator);
@@ -1370,8 +1403,8 @@
 	map.register(new URLLayer());
 	map.resize();
 	const credit = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-	appendCredit(document.body, credit);
-	window.onresize = () => map.resize();
+	appendCredit(map.getWrap(), credit);
+	window.onresize = map.resize;
 
 	const uiWrap = document.createElement('div');
 	uiWrap.style.position = 'absolute';
@@ -1395,4 +1428,4 @@
 	};
 
 }());
-//# sourceMappingURL=bundle.12e11e7e.js.map
+//# sourceMappingURL=bundle.0250c768.js.map
