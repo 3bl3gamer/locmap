@@ -1,4 +1,3 @@
-export const _dummy: "I'm a module";
 export type MapMoveParams = {
     dx: number;
     dy: number;

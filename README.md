@@ -1,4 +1,4 @@
-Simple modular tile map engine.
+Simple modular canvas-based tile map engine.
 
 4.5 KiB after min+gizp, [more](#size).
 
@@ -10,7 +10,7 @@ Simple modular tile map engine.
 import {
     LocMap, ControlLayer, ControlHintLayer, LocationLayer, URLLayer,
     TileContainer, TileLayer, ProjectionMercator, oneOf, appendCredit,
-} from '${mapSrcDir}'
+} from 'locmap'
 
 const map = new LocMap(document.body, ProjectionMercator)
 const tileContainer = new TileContainer(256, (x, y, z) =>

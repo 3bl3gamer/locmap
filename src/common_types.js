@@ -1,4 +1,4 @@
-export const _dummy = "I'm a module"
+export {}
 
 /**
  * @typedef {{dx:number, dy:number}} MapMoveParams

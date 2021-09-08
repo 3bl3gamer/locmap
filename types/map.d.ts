@@ -11,11 +11,10 @@
  * @template T
  * @typedef {(map:LocMap, params:T) => unknown} MapEventHandler
  */
-/** @typedef {import('./common_types').MapEventHandlersMap} MapEventHandlersMap */
 /**
  * @typedef {{
- *   [K in keyof MapEventHandlersMap]?:
- *     MapEventHandler<MapEventHandlersMap[K]>
+ *   [K in keyof import('./common_types').MapEventHandlersMap]?:
+ *     MapEventHandler<import('./common_types').MapEventHandlersMap[K]>
  * } & Record<string, MapEventHandler<any>>} MapEventHandlers
  */
 /**
@@ -47,11 +46,10 @@ export class LocMap {
      * @template T
      * @typedef {(map:LocMap, params:T) => unknown} MapEventHandler
      */
-    /** @typedef {import('./common_types').MapEventHandlersMap} MapEventHandlersMap */
     /**
      * @typedef {{
-     *   [K in keyof MapEventHandlersMap]?:
-     *     MapEventHandler<MapEventHandlersMap[K]>
+     *   [K in keyof import('./common_types').MapEventHandlersMap]?:
+     *     MapEventHandler<import('./common_types').MapEventHandlersMap[K]>
      * } & Record<string, MapEventHandler<any>>} MapEventHandlers
      */
     /**
@@ -139,7 +137,9 @@ export class LocMap {
     /**
      * @template {string} K
      * @param {K} name
-     * @param {K extends keyof MapEventHandlersMap ? MapEventHandlersMap[K] : unknown} params
+     * @param {K extends keyof import('./common_types').MapEventHandlersMap
+     *           ? import('./common_types').MapEventHandlersMap[K]
+     *           : unknown} params
      */
     emit: <K extends string>(name: K, params: K extends keyof import("./common_types").MapEventHandlersMap ? import("./common_types").MapEventHandlersMap[K] : unknown) => void;
 }
@@ -157,7 +157,6 @@ export type ProjectionConverter = {
     meters2pixCoef(lat: number, zoom: number): number;
 };
 export type MapEventHandler<T> = (map: LocMap, params: T) => unknown;
-export type MapEventHandlersMap = import('./common_types').MapEventHandlersMap;
 export type MapEventHandlers = {
     mapMove?: MapEventHandler<import("./common_types").MapMoveParams> | undefined;
     mapZoom?: MapEventHandler<import("./common_types").MapZoomParams> | undefined;
