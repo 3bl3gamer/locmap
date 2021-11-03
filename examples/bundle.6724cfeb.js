@@ -849,7 +849,7 @@
 						return true
 					},
 					wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
-						if (!doNotInterfere || e.ctrlKey) {
+						if (!doNotInterfere || e.ctrlKey || e.metaKey) {
 							map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250));
 							return true
 						} else {
@@ -939,6 +939,10 @@
 		};
 	}
 
+	function controlHintKeyName() {
+		return navigator.userAgent.includes('Macintosh') ? '⌘' : 'Ctrl'
+	}
+
 	/** @param {HTMLImageElement} img */
 	function isLoaded(img) {
 		return img.complete && img.naturalWidth > 0
@@ -974,7 +978,7 @@
 			function onLoad() {
 				map.requestRedraw();
 			}
-			img.onload = function () {
+			img.onload = () => {
 				if ('createImageBitmap' in window) {
 					// trying no decode image in parallel thread,
 					// if failed (beacuse of CORS for example) tryimg to show image anyway
@@ -1288,10 +1292,14 @@
 
 		/** @param {import('./map').LocMap} map */
 		this.register = map => {
-			watchID = navigator.geolocation.watchPosition(geoPos => {
-				lastLocation = geoPos.coords;
-				map.requestRedraw();
-			});
+			watchID = navigator.geolocation.watchPosition(
+				geoPos => {
+					lastLocation = geoPos.coords;
+					map.requestRedraw();
+				},
+				null,
+				{ enableHighAccuracy: true },
+			);
 		};
 
 		/** @param {import('./map').LocMap} map */
@@ -1394,12 +1402,12 @@
 	const map = new LocMap(document.body, ProjectionMercator);
 	const tileContainer = new TileContainer(
 		256,
-		(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+		(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
 	);
 	map.register(new TileLayer(tileContainer));
 	let controlLayer = new ControlLayer();
 	map.register(controlLayer);
-	map.register(new ControlHintLayer('hold Ctrl to zoom', 'use two fingers to drag'));
+	map.register(new ControlHintLayer(`hold ${controlHintKeyName()} to zoom`, 'use two fingers to drag'));
 	map.register(new LocationLayer());
 	map.register(new URLLayer());
 	map.resize();
@@ -1417,7 +1425,7 @@
 <label>
 	<input class="ctrl-checkbox" type="checkbox"/>
 	do not interfere with regular page interaction<br>
-	<span style="color:gray">(require Ctrl for wheel-zoom and two fingers for touch-drag)</span>
+	<span style="color:gray">(require ${controlHintKeyName()} for wheel-zoom and two fingers for touch-drag)</span>
 </label>`;
 	document.body.appendChild(uiWrap);
 
@@ -1429,4 +1437,4 @@
 	};
 
 }());
-//# sourceMappingURL=bundle.31c4a8c9.js.map
+//# sourceMappingURL=bundle.6724cfeb.js.map
