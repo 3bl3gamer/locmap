@@ -26,7 +26,7 @@ window.onresize = map.resize
 
 ```
         bundled minfied min+gz
-base      16.5     5.7    2.4  KiB
-regular   33.1    11.3    4.5  KiB
-full      38.5    13.8    5.5  KiB
+base      16.9     5.9    2.4  KiB
+regular   34.5    11.6    4.6  KiB
+full      39.9    14.2    5.6  KiB
 ```
