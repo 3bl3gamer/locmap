@@ -52,7 +52,6 @@ export function TileLayer(tileHost) {
 	 */
 	function pauseTileLoad(map, durationMS) {
 		if (shouldLoadTiles) {
-			// console.log('paused')
 			tileLoadPausedAt = performance.now()
 			shouldLoadTiles = false
 		}
@@ -60,8 +59,22 @@ export function TileLayer(tileHost) {
 		tileLoadOffTimeout = window.setTimeout(() => {
 			shouldLoadTiles = true
 			map.requestRedraw()
-			// console.log('unpaused')
 		}, durationMS)
+	}
+
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} scale
+	 */
+	function drawTilePlaceholder(map, x, y, scale) {
+		const rc = map.get2dContext()
+		if (rc === null) return
+		const w = tileHost.getTileWidth() * scale
+		const margin = 1.5
+		rc.strokeStyle = '#eee'
+		rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2)
 	}
 
 	/**
@@ -83,6 +96,8 @@ export function TileLayer(tileHost) {
 			drawn = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub) //prettier-ignore
 			if (drawn) return
 		}
+
+		drawTilePlaceholder(map, x, y, scale)
 
 		tileHost.tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1) //prettier-ignore
 		tileHost.tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1) //prettier-ignore

@@ -23,8 +23,6 @@ function getApproximatedDelta(items, attr) {
 	let n = 0
 	const now = performance.now()
 	let startI = items.length - 1
-	// ignoring the last movement, it may be slower than expected inertia motion
-	if (startI > 2) startI -= 1
 	for (let i = startI; i >= 0; i--) {
 		const x = items[i].stamp
 		if (now - x > 150) break
@@ -36,7 +34,9 @@ function getApproximatedDelta(items, attr) {
 		n++
 	}
 	if (n <= 1) return 0
-	const a = (n * sumxy - sumx * sumy) / (n * sumx2 - sumx * sumx)
+	const aDenom = n * sumx2 - sumx * sumx
+	if (aDenom === 0) return 0
+	const a = (n * sumxy - sumx * sumy) / aDenom
 	// const b = (sumy - a * sumx) / n
 	return a
 }
@@ -65,11 +65,27 @@ export function ControlLayer(opts) {
 	for (const arr of [lastMoves, lastZooms])
 		while (arr.length < 5) arr.push(Object.assign({}, /**@type {*}*/ (arr[0])))
 
+	/**
+	 * If stamp is new, pops the first array element, pushes in back and returns it.
+	 * If stamp is same, just returns the last array element.
+	 * Useful for Safari (and maybe some others) where sometimes a bunch of touch events
+	 * come with same timeStamp. In that case we should just update last element, not push anything.
+	 * @template {{stamp:number}} T
+	 * @param {T[]} arr
+	 * @param {number} stamp
+	 * @returns {T}
+	 */
+	function peekOrShift(arr, stamp) {
+		const last = arr[arr.length - 1]
+		if (last.stamp === stamp) return last
+		const newLast = /** @type {*} */ (arr.shift())
+		arr.push(newLast)
+		return newLast
+	}
+
 	/** @param {number} stamp */
 	function recordMousePos(stamp) {
-		/** @type {typeof lastMoves[number]} */
-		const last = /** @type {*} */ (lastMoves.shift())
-		lastMoves.push(last)
+		const last = peekOrShift(lastMoves, stamp)
 		last.x = mouseX
 		last.y = mouseY
 		last.stamp = stamp
@@ -86,9 +102,7 @@ export function ControlLayer(opts) {
 	}
 	/** @param {number} stamp */
 	function recordTouchDist(stamp) {
-		/** @type {typeof lastZooms[number]} */
-		const last = /** @type {*} */ (lastZooms.shift())
-		lastZooms.push(last)
+		const last = peekOrShift(lastZooms, stamp)
 		last.dist = lastDoubleTouch_dist
 		last.stamp = stamp
 	}
@@ -125,6 +139,23 @@ export function ControlLayer(opts) {
 		const k = Math.max(0, Math.min(1, ((duration - timeDelta) / duration) * 2))
 		mouseX = (lastDoubleTouch_cx + lastDoubleTouch_dx * timeDelta) * k + x * (1 - k)
 		mouseY = (lastDoubleTouch_cy + lastDoubleTouch_dy * timeDelta) * k + y * (1 - k)
+	}
+
+	/**
+	 * For some reason FF return same touchMove event for each touch
+	 * (two events with same timeStamps and coords for two touches, thee for thee, etc.)
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {number} distance
+	 * @param {number} stamp
+	 */
+	function doubleMoveHasChanged(centerX, centerY, distance, stamp) {
+		return (
+			mouseX !== centerX ||
+			mouseY !== centerY ||
+			lastDoubleTouch_dist !== distance ||
+			lastMoves[lastMoves.length - 1].stamp !== stamp
+		)
 	}
 
 	/** @param {import('./map').LocMap} map */
@@ -183,16 +214,18 @@ export function ControlLayer(opts) {
 					const cx = (x0 + x1) * 0.5
 					const cy = (y0 + y1) * 0.5
 					const cd = point_distance(x0, y0, x1, y1)
-					map.move(cx - mouseX, cy - mouseY)
-					map.zoom(cx, cy, cd / lastDoubleTouch_dist)
-					mouseX = cx
-					mouseY = cy
-					lastDoubleTouch_dist = cd
-					recordMousePos(e.timeStamp)
-					recordTouchDist(e.timeStamp)
-					lastDoubleTouch_cx = cx
-					lastDoubleTouch_cy = cy
-					map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 })
+					if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
+						map.move(cx - mouseX, cy - mouseY)
+						map.zoom(cx, cy, cd / lastDoubleTouch_dist)
+						mouseX = cx
+						mouseY = cy
+						lastDoubleTouch_dist = cd
+						recordMousePos(e.timeStamp)
+						recordTouchDist(e.timeStamp)
+						lastDoubleTouch_cx = cx
+						lastDoubleTouch_cy = cy
+						map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 })
+					}
 					return true
 				},
 				doubleUp(e, id0, id1, isSwitching) {
