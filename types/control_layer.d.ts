@@ -44,3 +44,4 @@ export class ControlHintLayer {
     /** @type {import('./map').MapEventHandlers} */
     onEvent: import('./map').MapEventHandlers;
 }
+export function controlHintKeyName(): "⌘" | "Ctrl";

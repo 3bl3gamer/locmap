@@ -21,10 +21,14 @@ export function LocationLayer() {
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
-		watchID = navigator.geolocation.watchPosition(geoPos => {
-			lastLocation = geoPos.coords
-			map.requestRedraw()
-		})
+		watchID = navigator.geolocation.watchPosition(
+			geoPos => {
+				lastLocation = geoPos.coords
+				map.requestRedraw()
+			},
+			null,
+			{ enableHighAccuracy: true },
+		)
 	}
 
 	/** @param {import('./map').LocMap} map */

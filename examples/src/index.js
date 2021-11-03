@@ -9,6 +9,7 @@ import {
 	URLLayer,
 	oneOf,
 	appendCredit,
+	controlHintKeyName,
 } from '../../src'
 
 document.documentElement.style.height = '100%'
@@ -20,12 +21,12 @@ document.body.style.margin = '0'
 const map = new LocMap(document.body, ProjectionMercator)
 const tileContainer = new TileContainer(
 	256,
-	(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+	(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
 )
 map.register(new TileLayer(tileContainer))
 let controlLayer = new ControlLayer()
 map.register(controlLayer)
-map.register(new ControlHintLayer('hold Ctrl to zoom', 'use two fingers to drag'))
+map.register(new ControlHintLayer(`hold ${controlHintKeyName()} to zoom`, 'use two fingers to drag'))
 map.register(new LocationLayer())
 map.register(new URLLayer())
 map.resize()
@@ -43,7 +44,7 @@ uiWrap.innerHTML = `
 <label>
 	<input class="ctrl-checkbox" type="checkbox"/>
 	do not interfere with regular page interaction<br>
-	<span style="color:gray">(require Ctrl for wheel-zoom and two fingers for touch-drag)</span>
+	<span style="color:gray">(require ${controlHintKeyName()} for wheel-zoom and two fingers for touch-drag)</span>
 </label>`
 document.body.appendChild(uiWrap)
 

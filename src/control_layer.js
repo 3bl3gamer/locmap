@@ -205,7 +205,7 @@ export function ControlLayer(opts) {
 					return true
 				},
 				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
-					if (!doNotInterfere || e.ctrlKey) {
+					if (!doNotInterfere || e.ctrlKey || e.metaKey) {
 						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250))
 						return true
 					} else {
@@ -293,4 +293,8 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 			}
 		},
 	}
+}
+
+export function controlHintKeyName() {
+	return navigator.userAgent.includes('Macintosh') ? '⌘' : 'Ctrl'
 }

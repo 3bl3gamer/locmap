@@ -33,7 +33,7 @@ export function TileContainer(tileW, pathFunc) {
 		function onLoad() {
 			map.requestRedraw()
 		}
-		img.onload = function () {
+		img.onload = () => {
 			if ('createImageBitmap' in window) {
 				// trying no decode image in parallel thread,
 				// if failed (beacuse of CORS for example) tryimg to show image anyway
