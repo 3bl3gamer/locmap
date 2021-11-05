@@ -137,7 +137,7 @@
 		this.updateLocation = (_lon, _lat, _level) => {
 			lon = _lon;
 			lat = _lat;
-			level = (_level + 0.5) | 0;
+			level = Math.round(_level);
 			zoom = Math.pow(2, _level);
 			pos_map2screen();
 			updateLayers();
@@ -161,31 +161,55 @@
 			rc.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
 		};
 
+		const zoomInertiaDeceleration = 0.993;
+		const zoomInertiaMinSpeed = 0.0001; //zoom_change/ms
+		let zoomInertiaPrevStamp = 0;
+		let zoomInertiaDelta = 1;
+		let zoomInertiaX = 0;
+		let zoomInertiaY = 0;
+		const zoomSmoothDeceleration = 0.983;
 		let zoomSmoothDelta = 1;
-		let zoomSmoothX = 0;
-		let zoomSmoothY = 0;
-		let moveXInertia = 0;
-		let moveYInertia = 0;
-		let zoomDeltaInertia = 1;
+
+		const moveInertiaDeceleration = 0.993; //relative speed decrease per 1ms
+		const moveInertiaMinSpeed = 0.01; //pixels/ms
+		let moveInertiaPrevStamp = 0;
+		let moveInertiaX = 0;
+		let moveInertiaY = 0;
+
 		const smoothIfNecessary = () => {
-			if (Math.abs(zoomSmoothDelta - 1) > 0.01 || Math.abs(zoomDeltaInertia - 1) > 0.01) {
-				zoomSmoothDelta *= zoomDeltaInertia;
-				zoomDeltaInertia += (1 - zoomDeltaInertia) * 0.2;
-				const newDelta = 1 + (zoomSmoothDelta - 1) * 0.7;
-				this.zoom(zoomSmoothX, zoomSmoothY, zoomSmoothDelta / newDelta);
-				zoomSmoothDelta = newDelta;
+			const now = performance.now();
+
+			if (
+				Math.abs(zoomSmoothDelta - 1) > zoomInertiaMinSpeed ||
+				Math.abs(zoomInertiaDelta - 1) > zoomInertiaMinSpeed
+			) {
+				const elapsed = now - zoomInertiaPrevStamp;
+
+				const smoothK = Math.pow(zoomSmoothDeceleration, elapsed);
+				let newSmoothDelta = 1 + (zoomSmoothDelta - 1) * smoothK;
+				if (Math.abs(newSmoothDelta - 1) <= zoomInertiaMinSpeed) newSmoothDelta = 1;
+
+				const dz = Math.pow(zoomInertiaDelta, elapsed) * (zoomSmoothDelta / newSmoothDelta);
+				this.zoom(zoomInertiaX, zoomInertiaY, dz);
+
+				const inertiaK = Math.pow(zoomInertiaDeceleration, elapsed);
+				zoomInertiaDelta = 1 + (zoomInertiaDelta - 1) * inertiaK;
+				zoomSmoothDelta = newSmoothDelta;
+				zoomInertiaPrevStamp = now;
 			}
-			if (Math.abs(moveXInertia) > 0.5 || Math.abs(moveYInertia) > 0.5) {
-				this.move(moveXInertia, moveYInertia);
-				moveXInertia *= 0.9;
-				moveYInertia *= 0.9;
+
+			if (Math.abs(moveInertiaX) > moveInertiaMinSpeed || Math.abs(moveInertiaY) > moveInertiaMinSpeed) {
+				const elapsed = now - moveInertiaPrevStamp;
+				this.move(moveInertiaX * elapsed, moveInertiaY * elapsed);
+				const k = Math.pow(moveInertiaDeceleration, elapsed);
+				moveInertiaX *= k;
+				moveInertiaY *= k;
+				moveInertiaPrevStamp = now;
 			}
 		};
 
-		const frameCounter = new FrameCounter();
 		let animFrameRequested = false;
 		function requestRedraw() {
-			frameCounter.frameRequested();
 			if (!animFrameRequested) {
 				animFrameRequested = true;
 				requestAnimationFrame(onAnimationFrame);
@@ -194,12 +218,10 @@
 		/** @param {number} timeStamp */
 		function onAnimationFrame(timeStamp) {
 			animFrameRequested = false;
-			frameCounter.frameDrawn(timeStamp);
 			drawLayers();
 			smoothIfNecessary();
 		}
 		this.requestRedraw = requestRedraw;
-		this.getFrameTimeDelta = frameCounter.getFrameTimeDelta;
 
 		//-------------------
 		// control inner
@@ -223,7 +245,7 @@
 		 */
 		this.zoom = (x, y, delta) => {
 			zoom = Math.max(minZoom, zoom * delta);
-			level = (Math.log(zoom) / Math.log(2) + 0.5) | 0;
+			level = Math.round(Math.log2(zoom) - 0.1); //extra level shift, or on half-level zoom text on tiles may be too small
 			xShift += (-x + curWidth / 2 - xShift) * (1 - delta);
 			yShift += (-y + curHeight / 2 - yShift) * (1 - delta);
 			pos_screen2map();
@@ -240,8 +262,10 @@
 		 */
 		this.zoomSmooth = (x, y, d) => {
 			zoomSmoothDelta = Math.max(minZoom / zoom, zoomSmoothDelta * d);
-			zoomSmoothX = x;
-			zoomSmoothY = y;
+			zoomInertiaDelta = 1;
+			zoomInertiaX = x;
+			zoomInertiaY = y;
+			zoomInertiaPrevStamp = performance.now();
 			smoothIfNecessary();
 		};
 
@@ -262,23 +286,27 @@
 		/**
 		 * @param {number} dx
 		 * @param {number} dy
+		 * @param {number} stamp
 		 */
-		this.applyMoveInertia = (dx, dy) => {
-			moveXInertia = dx;
-			moveYInertia = dy;
-			smoothIfNecessary();
+		this.applyMoveInertia = (dx, dy, stamp) => {
+			moveInertiaX = dx;
+			moveInertiaY = dy;
+			moveInertiaPrevStamp = stamp;
+			requestAnimationFrame(smoothIfNecessary);
 		};
 		/**
 		 * @param {number} x
 		 * @param {number} y
 		 * @param {number} dz
+		 * @param {number} stamp
 		 */
-		this.applyZoomInertia = (x, y, dz) => {
-			zoomDeltaInertia = dz;
-			zoomSmoothX = x;
-			zoomSmoothY = y;
+		this.applyZoomInertia = (x, y, dz, stamp) => {
+			zoomInertiaDelta = dz;
 			zoomSmoothDelta = 1;
-			smoothIfNecessary();
+			zoomInertiaX = x;
+			zoomInertiaY = y;
+			zoomInertiaPrevStamp = stamp;
+			requestAnimationFrame(smoothIfNecessary);
 		};
 
 		//------------
@@ -306,36 +334,6 @@
 		lon = 0;
 		lat = 0;
 		pos_map2screen();
-	}
-
-	/** @class */
-	function FrameCounter() {
-		const frameTimeDeltas = [16, 16, 16, 16, 16];
-		let prevFrameTimeDelta = /**@type {number|null} */ (null);
-		let animFrameID = 0;
-
-		function onAnimFrame() {
-			prevFrameTimeDelta = null;
-		}
-
-		this.frameRequested = () => {
-			cancelAnimationFrame(animFrameID);
-		};
-		/** @param {number} timeStamp */
-		this.frameDrawn = timeStamp => {
-			cancelAnimationFrame(animFrameID);
-			animFrameID = requestAnimationFrame(onAnimFrame);
-			if (prevFrameTimeDelta !== null) {
-				frameTimeDeltas.push(Math.min(32, timeStamp - prevFrameTimeDelta));
-				frameTimeDeltas.shift();
-			}
-			prevFrameTimeDelta = timeStamp;
-		};
-		this.getFrameTimeDelta = () => {
-			let sum = 0;
-			for (let i = 0; i < frameTimeDeltas.length; i++) sum += frameTimeDeltas[i];
-			return sum / frameTimeDeltas.length
-		};
 	}
 
 	/** @type {ProjectionConverter} */
@@ -688,6 +686,11 @@
 	}
 
 	/**
+	 * "default timing in Windows is 500ms" https://stackoverflow.com/a/29917394
+	 */
+	const DBL_CLICK_MAX_DELAY = 500;
+
+	/**
 	 * @class
 	 * @param {{doNotInterfere?:boolean}} [opts]
 	 */
@@ -695,9 +698,13 @@
 		const { doNotInterfere } = opts || {};
 		/** @type {{off():unknown}} */
 		let control;
-		let mouseX = NaN;
-		let mouseY = NaN;
-		let mouseSingleDistance = 0;
+
+		let mouseX = 0;
+		let mouseY = 0;
+
+		let moveDistance = 0;
+		let lastSingleClickAt = 0;
+		let lastDoubleTouchParams = /**@type {[number,number,number,number,number,number]|null}*/ (null);
 
 		let lastDoubleTouch_cx = 0;
 		let lastDoubleTouch_cy = 0;
@@ -728,7 +735,6 @@
 			arr.push(newLast);
 			return newLast
 		}
-
 		/** @param {number} stamp */
 		function recordMousePos(stamp) {
 			const last = peekOrShift(lastMoves, stamp);
@@ -754,13 +760,12 @@
 		}
 		/** @param {import('./map').LocMap} map */
 		function applyInertia(map) {
-			const frameDelta = map.getFrameTimeDelta();
 			performance.now();
-			const dx = getApproximatedDelta(lastMoves, 'x') * frameDelta;
-			const dy = getApproximatedDelta(lastMoves, 'y') * frameDelta;
-			const dz = (getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist) * frameDelta + 1;
-			map.applyMoveInertia(dx, dy);
-			map.applyZoomInertia(mouseX, mouseY, dz);
+			const dx = getApproximatedDelta(lastMoves, 'x');
+			const dy = getApproximatedDelta(lastMoves, 'y');
+			const dz = getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist + 1;
+			map.applyMoveInertia(dx, dy, lastMoves[lastMoves.length - 1].stamp);
+			map.applyZoomInertia(mouseX, mouseY, dz, lastZooms[lastZooms.length - 1].stamp);
 		}
 
 		/**
@@ -810,12 +815,13 @@
 				callbacks: {
 					singleDown(e, id, x, y, isSwitching) {
 						setCorrectedSinglePos(x, y, e.timeStamp);
-						mouseSingleDistance = 0;
 						if (isSwitching) moveRecordedMousePos();
 						if (!isSwitching) {
 							recordMousePos(e.timeStamp);
-							map.applyMoveInertia(0, 0);
-							map.applyZoomInertia(0, 0, 1);
+							map.applyMoveInertia(0, 0, 0);
+							map.applyZoomInertia(0, 0, 1, 0);
+							moveDistance = 0;
+							lastDoubleTouchParams = null;
 						}
 						map.emit('singleDown', { x, y, id, isSwitching });
 						return true
@@ -828,7 +834,7 @@
 							const oldX = mouseX;
 							const oldY = mouseY;
 							setCorrectedSinglePos(x, y, e.timeStamp);
-							mouseSingleDistance += point_distance(oldX, oldY, mouseX, mouseY);
+							moveDistance += point_distance(oldX, oldY, mouseX, mouseY);
 							map.move(mouseX - oldX, mouseY - oldY);
 							recordMousePos(e.timeStamp);
 							map.emit('singleMove', { x, y, id });
@@ -838,19 +844,34 @@
 					singleUp(e, id, isSwitching) {
 						if (!isSwitching) applyInertia(map);
 						map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching });
-						if (mouseSingleDistance < 5 && !isSwitching)
-							map.emit('singleClick', { x: mouseX, y: mouseY, id });
+						if (moveDistance < 5 && !isSwitching) {
+							const stamp = e.timeStamp;
+							if (lastDoubleTouchParams) {
+								map.zoomSmooth(mouseX, mouseY, 0.5);
+								const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams;
+								map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 });
+							} else {
+								const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY;
+								lastSingleClickAt = stamp;
+								if (isDbl) map.zoomSmooth(mouseX, mouseY, 2);
+								map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id });
+							}
+						}
 						return true
 					},
 					doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
 						mouseX = (x0 + x1) * 0.5;
 						mouseY = (y0 + y1) * 0.5;
 						lastDoubleTouch_dist = point_distance(x0, y0, x1, y1);
+						lastDoubleTouch_cx = mouseX;
+						lastDoubleTouch_cy = mouseY;
 						if (isSwitching) moveRecordedMousePos();
 						if (!isSwitching) {
 							recordMousePos(e.timeStamp);
 							recordTouchDist(e.timeStamp);
+							moveDistance = 0;
 						}
+						lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
 						map.emit('doubleDown', { id0, x0, y0, id1, x1, y1, isSwitching });
 						return true
 					},
@@ -861,20 +882,21 @@
 						if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
 							map.move(cx - mouseX, cy - mouseY);
 							map.zoom(cx, cy, cd / lastDoubleTouch_dist);
+							moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist);
+							lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
 							mouseX = cx;
 							mouseY = cy;
 							lastDoubleTouch_dist = cd;
-							recordMousePos(e.timeStamp);
-							recordTouchDist(e.timeStamp);
 							lastDoubleTouch_cx = cx;
 							lastDoubleTouch_cy = cy;
+							recordMousePos(e.timeStamp);
+							recordTouchDist(e.timeStamp);
 							map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 });
 						}
 						return true
 					},
 					doubleUp(e, id0, id1, isSwitching) {
 						applyInertia(map);
-						mouseX = mouseY = NaN;
 						lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x');
 						lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y');
 						lastDoubleTouch_stamp = e.timeStamp;
@@ -883,7 +905,7 @@
 					},
 					wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
 						if (!doNotInterfere || e.ctrlKey || e.metaKey) {
-							map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250));
+							map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240));
 							return true
 						} else {
 							map.emit('controlHint', { type: 'use_control_to_zoom' });
@@ -916,12 +938,12 @@
 	 */
 	function ControlHintLayer(controlText, twoFingersText, opts) {
 		const elem = document.createElement('div');
+		elem.className = 'map-control-hint';
 		const styles = {
 			position: 'absolute',
 			width: '100%',
 			height: '100%',
 			display: 'flex',
-			textAlign: 'center',
 			alignItems: 'center',
 			justifyContent: 'center',
 			color: 'rgba(0,0,0,0.7)',
@@ -1054,14 +1076,14 @@
 		 * @param {number} i
 		 * @param {number} j
 		 * @param {number} level
-		 * @param {boolean} load_on_fail
+		 * @param {boolean} loadIfMissing
 		 */
-		this.tryDrawTile = (map, x, y, scale, i, j, level, load_on_fail) => {
+		this.tryDrawTile = (map, x, y, scale, i, j, level, loadIfMissing) => {
 			//console.log("drawing tile", x,y,scale, i,j,l)
 			const key = getTileKey(i, j, level);
 			const img = cache.get(key);
 			if (img === undefined) {
-				if (load_on_fail) cache.set(key, getTileImg(map, i, j, level));
+				if (loadIfMissing) cache.set(key, getTileImg(map, i, j, level));
 				return false
 			} else {
 				if (isLoaded(img)) {
@@ -1131,7 +1153,7 @@
 	 * @param {import('./tile_container').TileContainer} tileHost
 	 */
 	function TileLayer(tileHost) {
-		const levelDifference = -Math.log(tileHost.getTileWidth()) / Math.LN2;
+		const levelDifference = -Math.log2(tileHost.getTileWidth());
 		const zoomDifference = 1 / tileHost.getTileWidth();
 
 		let scale = 1;
@@ -1260,13 +1282,19 @@
 		this.onEvent = {
 			mapZoom(map, { delta }) {
 				const now = performance.now();
-				if (now - lastZoomAt > 250) curZoomTotalDelta = 1; //new zoom action started
+				const timeDelta = now - lastZoomAt;
+				if (timeDelta > 250) curZoomTotalDelta = 1; //new zoom action started
 				lastZoomAt = now;
 				curZoomTotalDelta *= delta;
+
 				// if zoomed enough
 				if (curZoomTotalDelta < 1 / 1.2 || curZoomTotalDelta > 1.2) {
-					// unpausing periodically in case of long slow zooming
-					if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80);
+					// if fast enough
+					const isFast = timeDelta === 0 || Math.abs(Math.pow(delta, 1 / timeDelta) - 1) > 0.0005;
+					if (isFast) {
+						// unpausing periodically in case of long slow zooming
+						if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80);
+					}
 				}
 			},
 		};
@@ -1485,4 +1513,4 @@
 	};
 
 }());
-//# sourceMappingURL=bundle.7408e6ce.js.map
+//# sourceMappingURL=bundle.a2a6fbd1.js.map
