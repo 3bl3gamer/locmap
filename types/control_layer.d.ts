@@ -45,3 +45,7 @@ export class ControlHintLayer {
     onEvent: import('./map').MapEventHandlers;
 }
 export function controlHintKeyName(): "⌘" | "Ctrl";
+/**
+ * "default timing in Windows is 500ms" https://stackoverflow.com/a/29917394
+ */
+export const DBL_CLICK_MAX_DELAY: 500;

@@ -76,14 +76,14 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} i
 	 * @param {number} j
 	 * @param {number} level
-	 * @param {boolean} load_on_fail
+	 * @param {boolean} loadIfMissing
 	 */
-	this.tryDrawTile = (map, x, y, scale, i, j, level, load_on_fail) => {
+	this.tryDrawTile = (map, x, y, scale, i, j, level, loadIfMissing) => {
 		//console.log("drawing tile", x,y,scale, i,j,l)
 		const key = getTileKey(i, j, level)
 		const img = cache.get(key)
 		if (img === undefined) {
-			if (load_on_fail) cache.set(key, getTileImg(map, i, j, level))
+			if (loadIfMissing) cache.set(key, getTileImg(map, i, j, level))
 			return false
 		} else {
 			if (isLoaded(img)) {

@@ -19,9 +19,9 @@ export class TileContainer {
      * @param {number} i
      * @param {number} j
      * @param {number} level
-     * @param {boolean} load_on_fail
+     * @param {boolean} loadIfMissing
      */
-    tryDrawTile: (map: import('./map').LocMap, x: number, y: number, scale: number, i: number, j: number, level: number, load_on_fail: boolean) => boolean;
+    tryDrawTile: (map: import('./map').LocMap, x: number, y: number, scale: number, i: number, j: number, level: number, loadIfMissing: boolean) => boolean;
     /**
      * @param {import('./map').LocMap} map
      * @param {number} x

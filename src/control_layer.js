@@ -42,6 +42,11 @@ function getApproximatedDelta(items, attr) {
 }
 
 /**
+ * "default timing in Windows is 500ms" https://stackoverflow.com/a/29917394
+ */
+export const DBL_CLICK_MAX_DELAY = 500
+
+/**
  * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
@@ -49,9 +54,13 @@ export function ControlLayer(opts) {
 	const { doNotInterfere } = opts || {}
 	/** @type {{off():unknown}} */
 	let control
-	let mouseX = NaN
-	let mouseY = NaN
-	let mouseSingleDistance = 0
+
+	let mouseX = 0
+	let mouseY = 0
+
+	let moveDistance = 0
+	let lastSingleClickAt = 0
+	let lastDoubleTouchParams = /**@type {[number,number,number,number,number,number]|null}*/ (null)
 
 	let lastDoubleTouch_cx = 0
 	let lastDoubleTouch_cy = 0
@@ -162,12 +171,13 @@ export function ControlLayer(opts) {
 			callbacks: {
 				singleDown(e, id, x, y, isSwitching) {
 					setCorrectedSinglePos(x, y, e.timeStamp)
-					mouseSingleDistance = 0
 					if (isSwitching) moveRecordedMousePos()
 					if (!isSwitching) {
 						recordMousePos(e.timeStamp)
 						map.applyMoveInertia(0, 0, 0)
 						map.applyZoomInertia(0, 0, 1, 0)
+						moveDistance = 0
+						lastDoubleTouchParams = null
 					}
 					map.emit('singleDown', { x, y, id, isSwitching })
 					return true
@@ -180,7 +190,7 @@ export function ControlLayer(opts) {
 						const oldX = mouseX
 						const oldY = mouseY
 						setCorrectedSinglePos(x, y, e.timeStamp)
-						mouseSingleDistance += point_distance(oldX, oldY, mouseX, mouseY)
+						moveDistance += point_distance(oldX, oldY, mouseX, mouseY)
 						map.move(mouseX - oldX, mouseY - oldY)
 						recordMousePos(e.timeStamp)
 						map.emit('singleMove', { x, y, id })
@@ -190,19 +200,34 @@ export function ControlLayer(opts) {
 				singleUp(e, id, isSwitching) {
 					if (!isSwitching) applyInertia(map)
 					map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching })
-					if (mouseSingleDistance < 5 && !isSwitching)
-						map.emit('singleClick', { x: mouseX, y: mouseY, id })
+					if (moveDistance < 5 && !isSwitching) {
+						const stamp = e.timeStamp
+						if (lastDoubleTouchParams) {
+							map.zoomSmooth(mouseX, mouseY, 0.5)
+							const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams
+							map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 })
+						} else {
+							const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY
+							lastSingleClickAt = stamp
+							if (isDbl) map.zoomSmooth(mouseX, mouseY, 2)
+							map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id })
+						}
+					}
 					return true
 				},
 				doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
 					mouseX = (x0 + x1) * 0.5
 					mouseY = (y0 + y1) * 0.5
 					lastDoubleTouch_dist = point_distance(x0, y0, x1, y1)
+					lastDoubleTouch_cx = mouseX
+					lastDoubleTouch_cy = mouseY
 					if (isSwitching) moveRecordedMousePos()
 					if (!isSwitching) {
 						recordMousePos(e.timeStamp)
 						recordTouchDist(e.timeStamp)
+						moveDistance = 0
 					}
+					lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
 					map.emit('doubleDown', { id0, x0, y0, id1, x1, y1, isSwitching })
 					return true
 				},
@@ -213,20 +238,21 @@ export function ControlLayer(opts) {
 					if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
 						map.move(cx - mouseX, cy - mouseY)
 						map.zoom(cx, cy, cd / lastDoubleTouch_dist)
+						moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist)
+						lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
 						mouseX = cx
 						mouseY = cy
 						lastDoubleTouch_dist = cd
-						recordMousePos(e.timeStamp)
-						recordTouchDist(e.timeStamp)
 						lastDoubleTouch_cx = cx
 						lastDoubleTouch_cy = cy
+						recordMousePos(e.timeStamp)
+						recordTouchDist(e.timeStamp)
 						map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 })
 					}
 					return true
 				},
 				doubleUp(e, id0, id1, isSwitching) {
 					applyInertia(map)
-					mouseX = mouseY = NaN
 					lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x')
 					lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y')
 					lastDoubleTouch_stamp = e.timeStamp

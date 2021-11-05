@@ -29,6 +29,11 @@ export type SingleClickParams = {
     y: number;
     id: number | 'mouse';
 };
+export type DblClickParams = {
+    x: number;
+    y: number;
+    id: number | 'mouse';
+};
 export type DoubleDownParams = {
     id0: number;
     x0: number;
@@ -51,6 +56,14 @@ export type DoubleUpParams = {
     id1: number;
     isSwitching: boolean;
 };
+export type DoubleClickParams = {
+    id0: number;
+    x0: number;
+    y0: number;
+    id1: number;
+    x1: number;
+    y1: number;
+};
 export type SingleHoverParams = {
     x: number;
     y: number;
@@ -65,9 +78,11 @@ export type MapEventHandlersMap = {
     singleMove: SingleMoveParams;
     singleUp: SingleUpParams;
     singleClick: SingleClickParams;
+    dblClick: DblClickParams;
     doubleDown: DoubleDownParams;
     doubleMove: DoubleMoveParams;
     doubleUp: DoubleUpParams;
+    doubleClick: DoubleClickParams;
     singleHover: SingleHoverParams;
     controlHint: HintData;
 };

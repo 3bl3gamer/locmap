@@ -165,9 +165,11 @@ export type MapEventHandlers = {
     singleMove?: MapEventHandler<import("./common_types").SingleMoveParams> | undefined;
     singleUp?: MapEventHandler<import("./common_types").SingleUpParams> | undefined;
     singleClick?: MapEventHandler<import("./common_types").SingleClickParams> | undefined;
+    dblClick?: MapEventHandler<import("./common_types").DblClickParams> | undefined;
     doubleDown?: MapEventHandler<import("./common_types").DoubleDownParams> | undefined;
     doubleMove?: MapEventHandler<import("./common_types").DoubleMoveParams> | undefined;
     doubleUp?: MapEventHandler<import("./common_types").DoubleUpParams> | undefined;
+    doubleClick?: MapEventHandler<import("./common_types").DoubleClickParams> | undefined;
     singleHover?: MapEventHandler<import("./common_types").SingleHoverParams> | undefined;
     controlHint?: MapEventHandler<import("./common_types").HintData> | undefined;
 } & Record<string, MapEventHandler<any>>;
