@@ -3,7 +3,7 @@
  * @param {import('./tile_container').TileContainer} tileHost
  */
 export function TileLayer(tileHost) {
-	const levelDifference = -Math.log(tileHost.getTileWidth()) / Math.LN2
+	const levelDifference = -Math.log2(tileHost.getTileWidth())
 	const zoomDifference = 1 / tileHost.getTileWidth()
 
 	let scale = 1
@@ -132,13 +132,19 @@ export function TileLayer(tileHost) {
 	this.onEvent = {
 		mapZoom(map, { delta }) {
 			const now = performance.now()
-			if (now - lastZoomAt > 250) curZoomTotalDelta = 1 //new zoom action started
+			const timeDelta = now - lastZoomAt
+			if (timeDelta > 250) curZoomTotalDelta = 1 //new zoom action started
 			lastZoomAt = now
 			curZoomTotalDelta *= delta
+
 			// if zoomed enough
 			if (curZoomTotalDelta < 1 / 1.2 || curZoomTotalDelta > 1.2) {
-				// unpausing periodically in case of long slow zooming
-				if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80)
+				// if fast enough
+				const isFast = timeDelta === 0 || Math.abs(Math.pow(delta, 1 / timeDelta) - 1) > 0.0005
+				if (isFast) {
+					// unpausing periodically in case of long slow zooming
+					if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80)
+				}
 			}
 		},
 	}

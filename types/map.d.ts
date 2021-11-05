@@ -104,7 +104,6 @@ export class LocMap {
      */
     updateLocation: (_lon: number, _lat: number, _level: number) => void;
     requestRedraw: () => void;
-    getFrameTimeDelta: () => number;
     resize: () => void;
     /**
      * @param {number} x
@@ -126,14 +125,16 @@ export class LocMap {
     /**
      * @param {number} dx
      * @param {number} dy
+     * @param {number} stamp
      */
-    applyMoveInertia: (dx: number, dy: number) => void;
+    applyMoveInertia: (dx: number, dy: number, stamp: number) => void;
     /**
      * @param {number} x
      * @param {number} y
      * @param {number} dz
+     * @param {number} stamp
      */
-    applyZoomInertia: (x: number, y: number, dz: number) => void;
+    applyZoomInertia: (x: number, y: number, dz: number, stamp: number) => void;
     /**
      * @template {string} K
      * @param {K} name

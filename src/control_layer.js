@@ -82,7 +82,6 @@ export function ControlLayer(opts) {
 		arr.push(newLast)
 		return newLast
 	}
-
 	/** @param {number} stamp */
 	function recordMousePos(stamp) {
 		const last = peekOrShift(lastMoves, stamp)
@@ -108,13 +107,12 @@ export function ControlLayer(opts) {
 	}
 	/** @param {import('./map').LocMap} map */
 	function applyInertia(map) {
-		const frameDelta = map.getFrameTimeDelta()
 		const now = performance.now()
-		const dx = getApproximatedDelta(lastMoves, 'x') * frameDelta
-		const dy = getApproximatedDelta(lastMoves, 'y') * frameDelta
-		const dz = (getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist) * frameDelta + 1
-		map.applyMoveInertia(dx, dy)
-		map.applyZoomInertia(mouseX, mouseY, dz)
+		const dx = getApproximatedDelta(lastMoves, 'x')
+		const dy = getApproximatedDelta(lastMoves, 'y')
+		const dz = getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist + 1
+		map.applyMoveInertia(dx, dy, lastMoves[lastMoves.length - 1].stamp)
+		map.applyZoomInertia(mouseX, mouseY, dz, lastZooms[lastZooms.length - 1].stamp)
 	}
 
 	/**
@@ -163,14 +161,13 @@ export function ControlLayer(opts) {
 		controlDouble({
 			callbacks: {
 				singleDown(e, id, x, y, isSwitching) {
-					const isMouse = id === 'mouse'
 					setCorrectedSinglePos(x, y, e.timeStamp)
 					mouseSingleDistance = 0
 					if (isSwitching) moveRecordedMousePos()
 					if (!isSwitching) {
 						recordMousePos(e.timeStamp)
-						map.applyMoveInertia(0, 0)
-						map.applyZoomInertia(0, 0, 1)
+						map.applyMoveInertia(0, 0, 0)
+						map.applyZoomInertia(0, 0, 1, 0)
 					}
 					map.emit('singleDown', { x, y, id, isSwitching })
 					return true
@@ -191,7 +188,6 @@ export function ControlLayer(opts) {
 					return true
 				},
 				singleUp(e, id, isSwitching) {
-					const isMouse = id === 'mouse'
 					if (!isSwitching) applyInertia(map)
 					map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching })
 					if (mouseSingleDistance < 5 && !isSwitching)
@@ -239,7 +235,7 @@ export function ControlLayer(opts) {
 				},
 				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
 					if (!doNotInterfere || e.ctrlKey || e.metaKey) {
-						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 250))
+						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240))
 						return true
 					} else {
 						map.emit('controlHint', { type: 'use_control_to_zoom' })
@@ -272,12 +268,12 @@ export function ControlLayer(opts) {
  */
 export function ControlHintLayer(controlText, twoFingersText, opts) {
 	const elem = document.createElement('div')
+	elem.className = 'map-control-hint'
 	const styles = {
 		position: 'absolute',
 		width: '100%',
 		height: '100%',
 		display: 'flex',
-		textAlign: 'center',
 		alignItems: 'center',
 		justifyContent: 'center',
 		color: 'rgba(0,0,0,0.7)',

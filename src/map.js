@@ -134,7 +134,7 @@ export function LocMap(wrap, conv) {
 	this.updateLocation = (_lon, _lat, _level) => {
 		lon = _lon
 		lat = _lat
-		level = (_level + 0.5) | 0
+		level = Math.round(_level)
 		zoom = Math.pow(2, _level)
 		pos_map2screen()
 		updateLayers()
@@ -158,31 +158,55 @@ export function LocMap(wrap, conv) {
 		rc.scale(1 / devicePixelRatio, 1 / devicePixelRatio)
 	}
 
+	const zoomInertiaDeceleration = 0.993
+	const zoomInertiaMinSpeed = 0.0001 //zoom_change/ms
+	let zoomInertiaPrevStamp = 0
+	let zoomInertiaDelta = 1
+	let zoomInertiaX = 0
+	let zoomInertiaY = 0
+	const zoomSmoothDeceleration = 0.983
 	let zoomSmoothDelta = 1
-	let zoomSmoothX = 0
-	let zoomSmoothY = 0
-	let moveXInertia = 0
-	let moveYInertia = 0
-	let zoomDeltaInertia = 1
+
+	const moveInertiaDeceleration = 0.993 //relative speed decrease per 1ms
+	const moveInertiaMinSpeed = 0.01 //pixels/ms
+	let moveInertiaPrevStamp = 0
+	let moveInertiaX = 0
+	let moveInertiaY = 0
+
 	const smoothIfNecessary = () => {
-		if (Math.abs(zoomSmoothDelta - 1) > 0.01 || Math.abs(zoomDeltaInertia - 1) > 0.01) {
-			zoomSmoothDelta *= zoomDeltaInertia
-			zoomDeltaInertia += (1 - zoomDeltaInertia) * 0.2
-			const newDelta = 1 + (zoomSmoothDelta - 1) * 0.7
-			this.zoom(zoomSmoothX, zoomSmoothY, zoomSmoothDelta / newDelta)
-			zoomSmoothDelta = newDelta
+		const now = performance.now()
+
+		if (
+			Math.abs(zoomSmoothDelta - 1) > zoomInertiaMinSpeed ||
+			Math.abs(zoomInertiaDelta - 1) > zoomInertiaMinSpeed
+		) {
+			const elapsed = now - zoomInertiaPrevStamp
+
+			const smoothK = Math.pow(zoomSmoothDeceleration, elapsed)
+			let newSmoothDelta = 1 + (zoomSmoothDelta - 1) * smoothK
+			if (Math.abs(newSmoothDelta - 1) <= zoomInertiaMinSpeed) newSmoothDelta = 1
+
+			const dz = Math.pow(zoomInertiaDelta, elapsed) * (zoomSmoothDelta / newSmoothDelta)
+			this.zoom(zoomInertiaX, zoomInertiaY, dz)
+
+			const inertiaK = Math.pow(zoomInertiaDeceleration, elapsed)
+			zoomInertiaDelta = 1 + (zoomInertiaDelta - 1) * inertiaK
+			zoomSmoothDelta = newSmoothDelta
+			zoomInertiaPrevStamp = now
 		}
-		if (Math.abs(moveXInertia) > 0.5 || Math.abs(moveYInertia) > 0.5) {
-			this.move(moveXInertia, moveYInertia)
-			moveXInertia *= 0.9
-			moveYInertia *= 0.9
+
+		if (Math.abs(moveInertiaX) > moveInertiaMinSpeed || Math.abs(moveInertiaY) > moveInertiaMinSpeed) {
+			const elapsed = now - moveInertiaPrevStamp
+			this.move(moveInertiaX * elapsed, moveInertiaY * elapsed)
+			const k = Math.pow(moveInertiaDeceleration, elapsed)
+			moveInertiaX *= k
+			moveInertiaY *= k
+			moveInertiaPrevStamp = now
 		}
 	}
 
-	const frameCounter = new FrameCounter()
 	let animFrameRequested = false
 	function requestRedraw() {
-		frameCounter.frameRequested()
 		if (!animFrameRequested) {
 			animFrameRequested = true
 			requestAnimationFrame(onAnimationFrame)
@@ -191,12 +215,10 @@ export function LocMap(wrap, conv) {
 	/** @param {number} timeStamp */
 	function onAnimationFrame(timeStamp) {
 		animFrameRequested = false
-		frameCounter.frameDrawn(timeStamp)
 		drawLayers()
 		smoothIfNecessary()
 	}
 	this.requestRedraw = requestRedraw
-	this.getFrameTimeDelta = frameCounter.getFrameTimeDelta
 
 	//-------------------
 	// control inner
@@ -220,7 +242,7 @@ export function LocMap(wrap, conv) {
 	 */
 	this.zoom = (x, y, delta) => {
 		zoom = Math.max(minZoom, zoom * delta)
-		level = (Math.log(zoom) / Math.log(2) + 0.5) | 0
+		level = Math.round(Math.log2(zoom) - 0.1) //extra level shift, or on half-level zoom text on tiles may be too small
 		xShift += (-x + curWidth / 2 - xShift) * (1 - delta)
 		yShift += (-y + curHeight / 2 - yShift) * (1 - delta)
 		pos_screen2map()
@@ -237,8 +259,10 @@ export function LocMap(wrap, conv) {
 	 */
 	this.zoomSmooth = (x, y, d) => {
 		zoomSmoothDelta = Math.max(minZoom / zoom, zoomSmoothDelta * d)
-		zoomSmoothX = x
-		zoomSmoothY = y
+		zoomInertiaDelta = 1
+		zoomInertiaX = x
+		zoomInertiaY = y
+		zoomInertiaPrevStamp = performance.now()
 		smoothIfNecessary()
 	}
 
@@ -259,23 +283,27 @@ export function LocMap(wrap, conv) {
 	/**
 	 * @param {number} dx
 	 * @param {number} dy
+	 * @param {number} stamp
 	 */
-	this.applyMoveInertia = (dx, dy) => {
-		moveXInertia = dx
-		moveYInertia = dy
-		smoothIfNecessary()
+	this.applyMoveInertia = (dx, dy, stamp) => {
+		moveInertiaX = dx
+		moveInertiaY = dy
+		moveInertiaPrevStamp = stamp
+		requestAnimationFrame(smoothIfNecessary)
 	}
 	/**
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} dz
+	 * @param {number} stamp
 	 */
-	this.applyZoomInertia = (x, y, dz) => {
-		zoomDeltaInertia = dz
-		zoomSmoothX = x
-		zoomSmoothY = y
+	this.applyZoomInertia = (x, y, dz, stamp) => {
+		zoomInertiaDelta = dz
 		zoomSmoothDelta = 1
-		smoothIfNecessary()
+		zoomInertiaX = x
+		zoomInertiaY = y
+		zoomInertiaPrevStamp = stamp
+		requestAnimationFrame(smoothIfNecessary)
 	}
 
 	//------------
@@ -303,36 +331,6 @@ export function LocMap(wrap, conv) {
 	lon = 0
 	lat = 0
 	pos_map2screen()
-}
-
-/** @class */
-function FrameCounter() {
-	const frameTimeDeltas = [16, 16, 16, 16, 16]
-	let prevFrameTimeDelta = /**@type {number|null} */ (null)
-	let animFrameID = 0
-
-	function onAnimFrame() {
-		prevFrameTimeDelta = null
-	}
-
-	this.frameRequested = () => {
-		cancelAnimationFrame(animFrameID)
-	}
-	/** @param {number} timeStamp */
-	this.frameDrawn = timeStamp => {
-		cancelAnimationFrame(animFrameID)
-		animFrameID = requestAnimationFrame(onAnimFrame)
-		if (prevFrameTimeDelta !== null) {
-			frameTimeDeltas.push(Math.min(32, timeStamp - prevFrameTimeDelta))
-			frameTimeDeltas.shift()
-		}
-		prevFrameTimeDelta = timeStamp
-	}
-	this.getFrameTimeDelta = () => {
-		let sum = 0
-		for (let i = 0; i < frameTimeDeltas.length; i++) sum += frameTimeDeltas[i]
-		return sum / frameTimeDeltas.length
-	}
 }
 
 /** @type {ProjectionConverter} */
