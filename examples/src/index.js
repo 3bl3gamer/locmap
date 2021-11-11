@@ -54,3 +54,8 @@ $('.ctrl-checkbox').onchange = function () {
 	controlLayer = new ControlLayer({ doNotInterfere: this.checked })
 	map.register(controlLayer)
 }
+
+window.addEventListener('error', e => {
+	if (e.message === 'Script error.' && e.filename === '') return
+	alert(`${e.message} in ${e.filename}:${e.lineno}:${e.colno}`)
+})

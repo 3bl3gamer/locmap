@@ -113,8 +113,7 @@ export function LocMap(wrap, conv) {
 	const layers = /** @type {MapLayer[]} */ ([])
 	/** @param {MapLayer} layer */
 	this.register = function (layer) {
-		const pos = layers.indexOf(layer)
-		if (pos != -1) throw new Error('already registered')
+		if (layers.includes(layer)) throw new Error('already registered')
 		layers.push(layer)
 		if (layer.register) layer.register(this)
 	}

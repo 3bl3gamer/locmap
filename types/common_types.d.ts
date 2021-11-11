@@ -41,7 +41,6 @@ export type DoubleDownParams = {
     id1: number;
     x1: number;
     y1: number;
-    isSwitching: boolean;
 };
 export type DoubleMoveParams = {
     id0: number;
@@ -54,7 +53,6 @@ export type DoubleMoveParams = {
 export type DoubleUpParams = {
     id0: number;
     id1: number;
-    isSwitching: boolean;
 };
 export type DoubleClickParams = {
     id0: number;

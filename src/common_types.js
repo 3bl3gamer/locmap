@@ -11,9 +11,9 @@ export {}
  * @typedef {{x:number, y:number, id:number|'mouse' }} SingleMoveParams
  * @typedef {{x:number, y:number, id:number|'mouse' }} SingleClickParams
  * @typedef {{x:number, y:number, id:number|'mouse' }} DblClickParams
- * @typedef {{id0:number, x0:number, y0:number, id1:number, x1:number, y1:number, isSwitching:boolean}} DoubleDownParams
+ * @typedef {{id0:number, x0:number, y0:number, id1:number, x1:number, y1:number}} DoubleDownParams
  * @typedef {{id0:number, x0:number, y0:number, id1:number, x1:number, y1:number}} DoubleMoveParams
- * @typedef {{id0:number, id1:number, isSwitching:boolean}} DoubleUpParams
+ * @typedef {{id0:number, id1:number}} DoubleUpParams
  * @typedef {{id0:number, x0:number, y0:number, id1:number, x1:number, y1:number}} DoubleClickParams
  * @typedef {{x:number, y:number}} SingleHoverParams
  */

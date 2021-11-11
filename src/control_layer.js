@@ -168,112 +168,104 @@ export function ControlLayer(opts) {
 	/** @param {import('./map').LocMap} map */
 	const makeControl = map =>
 		controlDouble({
-			callbacks: {
-				singleDown(e, id, x, y, isSwitching) {
-					setCorrectedSinglePos(x, y, e.timeStamp)
-					if (isSwitching) moveRecordedMousePos()
-					if (!isSwitching) {
-						recordMousePos(e.timeStamp)
-						map.applyMoveInertia(0, 0, 0)
-						map.applyZoomInertia(0, 0, 1, 0)
-						moveDistance = 0
-						lastDoubleTouchParams = null
-					}
-					map.emit('singleDown', { x, y, id, isSwitching })
-					return true
-				},
-				singleMove(e, id, x, y) {
-					const isMouse = id === 'mouse'
-					if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
-						map.emit('controlHint', { type: 'use_two_fingers' })
-					} else {
-						const oldX = mouseX
-						const oldY = mouseY
-						setCorrectedSinglePos(x, y, e.timeStamp)
-						moveDistance += point_distance(oldX, oldY, mouseX, mouseY)
-						map.move(mouseX - oldX, mouseY - oldY)
-						recordMousePos(e.timeStamp)
-						map.emit('singleMove', { x, y, id })
-					}
-					return true
-				},
-				singleUp(e, id, isSwitching) {
-					if (!isSwitching) applyInertia(map)
-					map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching })
-					if (moveDistance < 5 && !isSwitching) {
-						const stamp = e.timeStamp
-						if (lastDoubleTouchParams) {
-							map.zoomSmooth(mouseX, mouseY, 0.5)
-							const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams
-							map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 })
-						} else {
-							const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY
-							lastSingleClickAt = stamp
-							if (isDbl) map.zoomSmooth(mouseX, mouseY, 2)
-							map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id })
-						}
-					}
-					return true
-				},
-				doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
-					mouseX = (x0 + x1) * 0.5
-					mouseY = (y0 + y1) * 0.5
-					lastDoubleTouch_dist = point_distance(x0, y0, x1, y1)
-					lastDoubleTouch_cx = mouseX
-					lastDoubleTouch_cy = mouseY
-					if (isSwitching) moveRecordedMousePos()
-					if (!isSwitching) {
-						recordMousePos(e.timeStamp)
-						recordTouchDist(e.timeStamp)
-						moveDistance = 0
-					}
-					lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
-					map.emit('doubleDown', { id0, x0, y0, id1, x1, y1, isSwitching })
-					return true
-				},
-				doubleMove(e, id0, x0, y0, id1, x1, y1) {
-					const cx = (x0 + x1) * 0.5
-					const cy = (y0 + y1) * 0.5
-					const cd = point_distance(x0, y0, x1, y1)
-					if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
-						map.move(cx - mouseX, cy - mouseY)
-						map.zoom(cx, cy, cd / lastDoubleTouch_dist)
-						moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist)
-						lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
-						mouseX = cx
-						mouseY = cy
-						lastDoubleTouch_dist = cd
-						lastDoubleTouch_cx = cx
-						lastDoubleTouch_cy = cy
-						recordMousePos(e.timeStamp)
-						recordTouchDist(e.timeStamp)
-						map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 })
-					}
-					return true
-				},
-				doubleUp(e, id0, id1, isSwitching) {
-					applyInertia(map)
-					lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x')
-					lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y')
-					lastDoubleTouch_stamp = e.timeStamp
-					map.emit('doubleUp', { id0, id1, isSwitching })
-					return true
-				},
-				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
-					if (!doNotInterfere || e.ctrlKey || e.metaKey) {
-						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240))
-						return true
-					} else {
-						map.emit('controlHint', { type: 'use_control_to_zoom' })
-						return false
-					}
-				},
-				singleHover(e, x, y) {
-					map.emit('singleHover', { x, y })
-				},
+			singleDown(e, id, x, y, isSwitching) {
+				setCorrectedSinglePos(x, y, e.timeStamp)
+				if (isSwitching) moveRecordedMousePos()
+				if (!isSwitching) {
+					recordMousePos(e.timeStamp)
+					map.applyMoveInertia(0, 0, 0)
+					map.applyZoomInertia(0, 0, 1, 0)
+					moveDistance = 0
+					lastDoubleTouchParams = null
+				}
+				map.emit('singleDown', { x, y, id, isSwitching })
+				return true
 			},
-			startElem: map.getCanvas(),
-		})
+			singleMove(e, id, x, y) {
+				const isMouse = id === 'mouse'
+				if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
+					map.emit('controlHint', { type: 'use_two_fingers' })
+				} else {
+					const oldX = mouseX
+					const oldY = mouseY
+					setCorrectedSinglePos(x, y, e.timeStamp)
+					moveDistance += point_distance(oldX, oldY, mouseX, mouseY)
+					map.move(mouseX - oldX, mouseY - oldY)
+					recordMousePos(e.timeStamp)
+					map.emit('singleMove', { x, y, id })
+				}
+				return true
+			},
+			singleUp(e, id, isSwitching) {
+				if (!isSwitching) applyInertia(map)
+				map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching })
+				if (moveDistance < 5 && !isSwitching) {
+					const stamp = e.timeStamp
+					if (lastDoubleTouchParams) {
+						map.zoomSmooth(mouseX, mouseY, 0.5)
+						const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams
+						map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 })
+					} else {
+						const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY
+						lastSingleClickAt = stamp
+						if (isDbl) map.zoomSmooth(mouseX, mouseY, 2)
+						map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id })
+					}
+				}
+				return true
+			},
+			doubleDown(e, id0, x0, y0, id1, x1, y1) {
+				mouseX = (x0 + x1) * 0.5
+				mouseY = (y0 + y1) * 0.5
+				lastDoubleTouch_dist = point_distance(x0, y0, x1, y1)
+				lastDoubleTouch_cx = mouseX
+				lastDoubleTouch_cy = mouseY
+				moveRecordedMousePos()
+				lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
+				map.emit('doubleDown', { id0, x0, y0, id1, x1, y1 })
+				return true
+			},
+			doubleMove(e, id0, x0, y0, id1, x1, y1) {
+				const cx = (x0 + x1) * 0.5
+				const cy = (y0 + y1) * 0.5
+				const cd = point_distance(x0, y0, x1, y1)
+				if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
+					map.move(cx - mouseX, cy - mouseY)
+					map.zoom(cx, cy, cd / lastDoubleTouch_dist)
+					moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist)
+					lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
+					mouseX = cx
+					mouseY = cy
+					lastDoubleTouch_dist = cd
+					lastDoubleTouch_cx = cx
+					lastDoubleTouch_cy = cy
+					recordMousePos(e.timeStamp)
+					recordTouchDist(e.timeStamp)
+					map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 })
+				}
+				return true
+			},
+			doubleUp(e, id0, id1) {
+				applyInertia(map)
+				lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x')
+				lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y')
+				lastDoubleTouch_stamp = e.timeStamp
+				map.emit('doubleUp', { id0, id1 })
+				return true
+			},
+			wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
+				if (!doNotInterfere || e.ctrlKey || e.metaKey) {
+					map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240))
+					return true
+				} else {
+					map.emit('controlHint', { type: 'use_control_to_zoom' })
+					return false
+				}
+			},
+			singleHover(e, x, y) {
+				map.emit('singleHover', { x, y })
+			},
+		}).on({ startElem: map.getCanvas() })
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
