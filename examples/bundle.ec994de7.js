@@ -116,8 +116,7 @@
 		const layers = /** @type {MapLayer[]} */ ([]);
 		/** @param {MapLayer} layer */
 		this.register = function (layer) {
-			const pos = layers.indexOf(layer);
-			if (pos != -1) throw new Error('already registered')
+			if (layers.includes(layer)) throw new Error('already registered')
 			layers.push(layer);
 			if (layer.register) layer.register(this);
 		};
@@ -366,29 +365,24 @@
 	/** @typedef {[EventTarget, string, (e:any) => void]} Evt */
 
 	/**
-	 * @param {{
-	 *   startElem: Element,
-	 *   moveElem?: EventTarget|null,
-	 *   offsetElem?: Element|null,
-	 *   leaveElem?: EventTarget|null,
-	 *   callbacks: {
-	 *     singleDown?: (e:MouseEvent|TouchEvent, id:'mouse'|number, x:number, y:number, isSwitching:boolean) => boolean|void,
-	 *     singleMove?: (e:MouseEvent|TouchEvent, id:'mouse'|number, x:number, y:number) => void|boolean,
-	 *     singleUp?: (e:MouseEvent|TouchEvent, id:'mouse'|number, isSwitching:boolean) => void|boolean,
-	 *     singleHover?: (e:MouseEvent, x:number, y:number) => void|boolean,
-	 *     singleLeave?: (e:MouseEvent, x:number, y:number) => void|boolean,
-	 *     doubleDown?: (e:TouchEvent, id0:number, x0:number, y0:number, id1:number, x1:number, y1:number, isSwitching:boolean) => void|boolean,
-	 *     doubleMove?: (e:TouchEvent, id0:number, x0:number, y0:number, id1:number, x1:number, y1:number) => void|boolean,
-	 *     doubleUp?: (e:TouchEvent, id0:number, id1:number, isSwitching:boolean) => void|boolean,
-	 *     wheelRot?: (e:WheelEvent, deltaX:number, deltaY:number, deltaZ:number, x:number, y:number) => void|boolean,
-	 *   },
-	 * }} params
+	 * @param {DoubleMoveCallbacks & SingleHoverCallbacks & WheelCallbacks} callbacks
 	 */
-	function controlDouble(params) {
-		const { startElem, callbacks } = params;
-		const moveElem = params.moveElem ?? window;
-		const offsetElem = params.offsetElem ?? startElem;
-		const leaveElem = params.leaveElem ?? startElem;
+	function controlDouble(callbacks) {
+		/** @type {Element} */ let startElem;
+		/** @type {EventTarget} */ let moveElem;
+		/** @type {EventTarget} */ let leaveElem;
+		/** @type {Element|null} */ let offsetElem;
+
+		/** @type {Evt} */ let mouseDownEvt;
+		/** @type {Evt} */ let mouseMoveEvt;
+		/** @type {Evt} */ let mouseUpEvt;
+		/** @type {Evt} */ let wheelEvt;
+		/** @type {Evt} */ let mouseHoverEvt;
+		/** @type {Evt} */ let mouseLeaveEvt;
+		/** @type {Evt} */ let touchStartEvt;
+		/** @type {Evt} */ let touchMoveEvt;
+		/** @type {Evt} */ let touchEndEvt;
+		/** @type {Evt} */ let touchCancelEvt;
 
 		const { singleDown = noop, singleMove = noop, singleUp = noop } = callbacks;
 		const { doubleDown = noop, doubleMove = noop, doubleUp = noop } = callbacks;
@@ -396,10 +390,10 @@
 
 		const touchIds = /** @type {number[]} */ ([]);
 
-		const wrap = makeOffsetWrapper(offsetElem);
+		const wrap = makeOffsetWrapper(() => offsetElem);
 
 		const mousedown = wrap(function mousedown(/** @type {MouseEvent} */ e, dx, dy) {
-			if (e.button != 0) return false
+			if (e.button !== 0) return false
 			addListener(mouseMoveEvt);
 			addListener(mouseUpEvt);
 			removeListener(mouseHoverEvt);
@@ -411,7 +405,7 @@
 		});
 
 		const mouseup = wrap(function mouseup(/** @type {MouseEvent} */ e, dx, dy) {
-			if (e.button != 0) return false
+			if (e.button !== 0) return false
 			removeListener(mouseMoveEvt);
 			removeListener(mouseUpEvt);
 			addListener(mouseHoverEvt);
@@ -427,51 +421,55 @@
 		});
 
 		const touchstart = wrap(function touchstart(/** @type {TouchEvent} */ e, dx, dy) {
-			const count = touchIds.length;
-			if (count == 2) return false
+			const curCount = touchIds.length;
+			if (curCount === 2) return false
+			const changedTouches = e.changedTouches;
 
-			if (count == 0) {
+			if (curCount === 0) {
 				addListener(touchMoveEvt);
 				addListener(touchEndEvt);
 				addListener(touchCancelEvt);
 			}
 
-			if (count == 0 && e.changedTouches.length == 1) {
+			if (curCount === 0 && changedTouches.length === 1) {
 				const t = e.changedTouches[0];
 				touchIds.push(t.identifier);
 				return singleDown(e, touchIds[0], t.clientX + dx, t.clientY + dy, false)
 			}
-			if (count == 0 && e.changedTouches.length >= 2) {
-				const ts = e.changedTouches;
-				touchIds.push(ts[0].identifier);
-				touchIds.push(ts[1].identifier);
-				const x0 = ts[0].clientX + dx;
-				const y0 = ts[0].clientY + dy;
-				const x1 = ts[1].clientX + dx;
-				const y1 = ts[1].clientY + dy;
-				return doubleDown(e, touchIds[0], x0, y0, touchIds[1], x1, y1, false)
+
+			let t0, t1;
+			let prevent = /**@type {void|boolean}*/ (false);
+			if (curCount === 0) {
+				// and changedTouches.length >= 2
+				t0 = changedTouches[0];
+				t1 = changedTouches[1];
+				touchIds.push(t0.identifier);
+				prevent = singleDown(e, t0.identifier, t0.clientX + dx, t0.clientY + dy, false);
+			} else {
+				// curCount === 1 and changedTouches.length >= 1
+				t0 = mustFindTouch(e.touches, touchIds[0]);
+				t1 = e.changedTouches[0];
 			}
-			if (count == 1) {
-				const t0 = mustFindTouch(e.touches, touchIds[0]);
-				const t1 = e.changedTouches[0];
-				touchIds.push(t1.identifier);
-				const x0 = t0.clientX + dx;
-				const y0 = t0.clientY + dy;
-				const x1 = t1.clientX + dx;
-				const y1 = t1.clientY + dy;
-				const prevent0 = singleUp(e, touchIds[0], true);
-				const prevent1 = doubleDown(e, touchIds[0], x0, y0, touchIds[1], x1, y1, true);
-				return prevent0 || prevent1
-			}
+			touchIds.push(t1.identifier);
+			const prevetUp = singleUp(e, t0.identifier, true);
+			prevent = prevent || prevetUp;
+
+			const x0 = t0.clientX + dx;
+			const y0 = t0.clientY + dy;
+			const x1 = t1.clientX + dx;
+			const y1 = t1.clientY + dy;
+			const preventDouble = doubleDown(e, touchIds[0], x0, y0, touchIds[1], x1, y1);
+			return prevent || preventDouble
 		});
 
 		const touchmove = wrap(function touchmove(/** @type {TouchEvent} */ e, dx, dy) {
-			const count = touchIds.length;
-			if (count == 1) {
-				const t0 = mustFindTouch(e.changedTouches, touchIds[0]);
+			const curCount = touchIds.length;
+			if (curCount === 1) {
+				const t0 = findTouch(e.changedTouches, touchIds[0]);
+				if (t0 === null) return false
 				return singleMove(e, touchIds[0], t0.clientX + dx, t0.clientY + dy)
 			}
-			if (count == 2) {
+			if (curCount === 2) {
 				// can not use e.changedTouches: one of touches may have not changed
 				const t0 = mustFindTouch(e.touches, touchIds[0]);
 				const t1 = mustFindTouch(e.touches, touchIds[1]);
@@ -485,8 +483,11 @@
 
 		const releasedTouches = /** @type {Touch[]} */ ([]);
 		const touchend = wrap(function touchend(/** @type {TouchEvent} */ e, dx, dy) {
-			const count = touchIds.length;
-			if (count === 0) return false
+			const curCount = touchIds.length;
+			if (curCount === 0) return false
+
+			const tid0 = touchIds[0];
+			const tid1 = touchIds[1];
 
 			releasedTouches.length = 0;
 			for (let j = touchIds.length - 1; j >= 0; j--) {
@@ -495,30 +496,34 @@
 					if (t.identifier === touchIds[j]) {
 						touchIds.splice(j, 1);
 						releasedTouches.push(t);
+						break
 					}
 				}
 			}
+			if (releasedTouches.length === 0) return false
 
-			if (count === releasedTouches.length) {
+			if (curCount === releasedTouches.length) {
 				removeListener(touchMoveEvt);
 				removeListener(touchEndEvt);
 				removeListener(touchCancelEvt);
 			}
 
-			if (count === 1 && releasedTouches.length === 1) {
+			if (curCount === 1) {
+				// and releasedTouches.length === 1
 				return singleUp(e, releasedTouches[0].identifier, false)
 			}
-			if (count == 2 && releasedTouches.length === 2) {
-				return doubleUp(e, releasedTouches[0].identifier, releasedTouches[1].identifier, false)
+
+			// curCount === 2 and releasedTouches.length >= 1
+			const tLast =
+				releasedTouches.length === 1 ? mustFindTouch(e.touches, touchIds[0]) : releasedTouches[1];
+
+			const preventUp2 = doubleUp(e, tid0, tid1);
+			const preventDown1 = singleDown(e, tLast.identifier, tLast.clientX + dx, tLast.clientY + dy, true);
+			let preventUp1 = /**@type {void|boolean}*/ (false);
+			if (curCount === 2 && releasedTouches.length === 2) {
+				preventUp1 = singleUp(e, tLast.identifier, false);
 			}
-			if (count == 2 && releasedTouches.length === 1) {
-				const id0 = touchIds[0];
-				const t0 = mustFindTouch(e.touches, id0);
-				const t1 = releasedTouches[0];
-				const prevent0 = doubleUp(e, id0, t1.identifier, true);
-				const prevent1 = singleDown(e, t0.identifier, t0.clientX + dx, t0.clientY + dy, true);
-				return prevent0 || prevent1
-			}
+			return preventUp2 || preventDown1 || preventUp1
 		});
 
 		const touchcancel = wrap(function touchcancel(/** @type {TouchEvent} */ e, dx, dy) {
@@ -527,32 +532,39 @@
 
 		const mousewheel = makeWheelListener(wrap, wheelRot);
 
-		const mouseDownEvt = /** @type {Evt} */ ([startElem, 'mousedown', mousedown]);
-		const mouseMoveEvt = /** @type {Evt} */ ([moveElem, 'mousemove', mousemove]);
-		const mouseUpEvt = /** @type {Evt} */ ([moveElem, 'mouseup', mouseup]);
-		const wheelEvt = /** @type {Evt} */ ([startElem, 'wheel', mousewheel]);
-		const mouseHoverEvt = /** @type {Evt} */ ([startElem, 'mousemove', mousemoveHover]);
-		const mouseLeaveEvt = /** @type {Evt} */ ([leaveElem, 'mouseleave', mouseleave]);
-		const touchStartEvt = /** @type {Evt} */ ([startElem, 'touchstart', touchstart]);
-		const touchMoveEvt = /** @type {Evt} */ ([moveElem, 'touchmove', touchmove]);
-		const touchEndEvt = /** @type {Evt} */ ([moveElem, 'touchend', touchend]);
-		const touchCancelEvt = /** @type {Evt} */ ([moveElem, 'touchcancel', touchcancel]);
-		// prettier-ignore
-		const events = [
-			mouseDownEvt, mouseMoveEvt, mouseUpEvt, mouseHoverEvt, mouseLeaveEvt, wheelEvt,
-			touchStartEvt, touchMoveEvt, touchEndEvt, touchCancelEvt,
-		];
-		const autoOnEvents = [mouseDownEvt, touchStartEvt, mouseHoverEvt, mouseLeaveEvt, wheelEvt];
+		return makeEventsToggler((/**@type {MoveElemsCfg}*/ elems) => {
+			startElem = elems.startElem;
+			moveElem = elems.moveElem ?? window;
+			leaveElem = elems.leaveElem ?? startElem;
+			offsetElem = nullUnlessOffset(elems.offsetElem, startElem);
 
-		return makeEventsToggler(events, autoOnEvents)
+			mouseDownEvt = /** @type {Evt} */ ([startElem, 'mousedown', mousedown]);
+			mouseMoveEvt = /** @type {Evt} */ ([moveElem, 'mousemove', mousemove]);
+			mouseUpEvt = /** @type {Evt} */ ([moveElem, 'mouseup', mouseup]);
+			wheelEvt = /** @type {Evt} */ ([startElem, 'wheel', mousewheel]);
+			mouseHoverEvt = /** @type {Evt} */ ([moveElem, 'mousemove', mousemoveHover]);
+			mouseLeaveEvt = /** @type {Evt} */ ([leaveElem, 'mouseleave', mouseleave]);
+			touchStartEvt = /** @type {Evt} */ ([startElem, 'touchstart', touchstart]);
+			touchMoveEvt = /** @type {Evt} */ ([moveElem, 'touchmove', touchmove]);
+			touchEndEvt = /** @type {Evt} */ ([moveElem, 'touchend', touchend]);
+			touchCancelEvt = /** @type {Evt} */ ([moveElem, 'touchcancel', touchcancel]);
+
+			// prettier-ignore
+			const events = [
+				mouseDownEvt, mouseMoveEvt, mouseUpEvt, mouseHoverEvt, mouseLeaveEvt, wheelEvt,
+				touchStartEvt, touchMoveEvt, touchEndEvt, touchCancelEvt,
+			];
+			const autoOnEvents = [mouseDownEvt, touchStartEvt, mouseHoverEvt, mouseLeaveEvt, wheelEvt];
+			return [events, autoOnEvents]
+		})
 	}
 
 	function noop() {}
 
 	/**
-	 * @param {Element|'no-offset'} offsetElem
+	 * @param {() => Element|null|undefined} getOffsetElem
 	 */
-	function makeOffsetWrapper(offsetElem) {
+	function makeOffsetWrapper(getOffsetElem) {
 		/**
 		 * @template {Event} T
 		 * @param {(e:T, x:number, y:number) => boolean|void} func
@@ -562,13 +574,21 @@
 			return e => {
 				let dx = 0;
 				let dy = 0;
-				if (offsetElem !== 'no-offset') {
-	({ left: dx, top: dy } = offsetElem.getBoundingClientRect());
-				}
+				const elem = getOffsetElem();
+				if (elem) ({ left: dx, top: dy } = elem.getBoundingClientRect());
 				func(e, -dx, -dy) && e.preventDefault();
 			}
 		}
 		return wrap
+	}
+
+	/**
+	 * @param {Element|null|undefined|'no-offset'} elem
+	 * @param {Element} defaultElem
+	 */
+	function nullUnlessOffset(elem, defaultElem) {
+		if (elem === 'no-offset') return null
+		return elem ?? defaultElem
 	}
 
 	/**
@@ -587,31 +607,32 @@
 	}
 
 	/**
-	 * @param {Evt[]} allEents
-	 * @param {Evt[]} autoOnEvents
+	 * @template TElemsCfg
+	 * @param {(elems: TElemsCfg) => EvtGroup} getEvents
+	 * @returns {ControlToggler<TElemsCfg>}
 	 */
-	function makeEventsToggler(allEents, autoOnEvents) {
-		let isOn = false;
-		/** @param {boolean|null|undefined} on */
-		function toggle(on) {
-			on = on ?? !isOn;
-			if (isOn === on) return
-			if (on) autoOnEvents.map(addListener);
-			else allEents.map(removeListener);
-			isOn = on;
-		}
+	function makeEventsToggler(getEvents) {
+		let events = /**@type {(EvtGroup|null)}*/ (null);
 
-		toggle(true);
 		return {
-			toggle,
 			get isOn() {
-				return isOn
+				return !!events
 			},
-			on() {
-				toggle(true);
+			on(elems) {
+				if (!events) {
+					events = getEvents(elems);
+					const autoOnEvents = events[1];
+					autoOnEvents.map(addListener);
+				}
+				return this
 			},
 			off() {
-				toggle(false);
+				if (events) {
+					const allEents = events[0];
+					allEents.map(removeListener);
+					events = null;
+				}
+				return this
 			},
 		}
 	}
@@ -812,112 +833,104 @@
 		/** @param {import('./map').LocMap} map */
 		const makeControl = map =>
 			controlDouble({
-				callbacks: {
-					singleDown(e, id, x, y, isSwitching) {
-						setCorrectedSinglePos(x, y, e.timeStamp);
-						if (isSwitching) moveRecordedMousePos();
-						if (!isSwitching) {
-							recordMousePos(e.timeStamp);
-							map.applyMoveInertia(0, 0, 0);
-							map.applyZoomInertia(0, 0, 1, 0);
-							moveDistance = 0;
-							lastDoubleTouchParams = null;
-						}
-						map.emit('singleDown', { x, y, id, isSwitching });
-						return true
-					},
-					singleMove(e, id, x, y) {
-						const isMouse = id === 'mouse';
-						if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
-							map.emit('controlHint', { type: 'use_two_fingers' });
-						} else {
-							const oldX = mouseX;
-							const oldY = mouseY;
-							setCorrectedSinglePos(x, y, e.timeStamp);
-							moveDistance += point_distance(oldX, oldY, mouseX, mouseY);
-							map.move(mouseX - oldX, mouseY - oldY);
-							recordMousePos(e.timeStamp);
-							map.emit('singleMove', { x, y, id });
-						}
-						return true
-					},
-					singleUp(e, id, isSwitching) {
-						if (!isSwitching) applyInertia(map);
-						map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching });
-						if (moveDistance < 5 && !isSwitching) {
-							const stamp = e.timeStamp;
-							if (lastDoubleTouchParams) {
-								map.zoomSmooth(mouseX, mouseY, 0.5);
-								const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams;
-								map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 });
-							} else {
-								const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY;
-								lastSingleClickAt = stamp;
-								if (isDbl) map.zoomSmooth(mouseX, mouseY, 2);
-								map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id });
-							}
-						}
-						return true
-					},
-					doubleDown(e, id0, x0, y0, id1, x1, y1, isSwitching) {
-						mouseX = (x0 + x1) * 0.5;
-						mouseY = (y0 + y1) * 0.5;
-						lastDoubleTouch_dist = point_distance(x0, y0, x1, y1);
-						lastDoubleTouch_cx = mouseX;
-						lastDoubleTouch_cy = mouseY;
-						if (isSwitching) moveRecordedMousePos();
-						if (!isSwitching) {
-							recordMousePos(e.timeStamp);
-							recordTouchDist(e.timeStamp);
-							moveDistance = 0;
-						}
-						lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
-						map.emit('doubleDown', { id0, x0, y0, id1, x1, y1, isSwitching });
-						return true
-					},
-					doubleMove(e, id0, x0, y0, id1, x1, y1) {
-						const cx = (x0 + x1) * 0.5;
-						const cy = (y0 + y1) * 0.5;
-						const cd = point_distance(x0, y0, x1, y1);
-						if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
-							map.move(cx - mouseX, cy - mouseY);
-							map.zoom(cx, cy, cd / lastDoubleTouch_dist);
-							moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist);
-							lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
-							mouseX = cx;
-							mouseY = cy;
-							lastDoubleTouch_dist = cd;
-							lastDoubleTouch_cx = cx;
-							lastDoubleTouch_cy = cy;
-							recordMousePos(e.timeStamp);
-							recordTouchDist(e.timeStamp);
-							map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 });
-						}
-						return true
-					},
-					doubleUp(e, id0, id1, isSwitching) {
-						applyInertia(map);
-						lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x');
-						lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y');
-						lastDoubleTouch_stamp = e.timeStamp;
-						map.emit('doubleUp', { id0, id1, isSwitching });
-						return true
-					},
-					wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
-						if (!doNotInterfere || e.ctrlKey || e.metaKey) {
-							map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240));
-							return true
-						} else {
-							map.emit('controlHint', { type: 'use_control_to_zoom' });
-							return false
-						}
-					},
-					singleHover(e, x, y) {
-						map.emit('singleHover', { x, y });
-					},
+				singleDown(e, id, x, y, isSwitching) {
+					setCorrectedSinglePos(x, y, e.timeStamp);
+					if (isSwitching) moveRecordedMousePos();
+					if (!isSwitching) {
+						recordMousePos(e.timeStamp);
+						map.applyMoveInertia(0, 0, 0);
+						map.applyZoomInertia(0, 0, 1, 0);
+						moveDistance = 0;
+						lastDoubleTouchParams = null;
+					}
+					map.emit('singleDown', { x, y, id, isSwitching });
+					return true
 				},
-				startElem: map.getCanvas(),
-			});
+				singleMove(e, id, x, y) {
+					const isMouse = id === 'mouse';
+					if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
+						map.emit('controlHint', { type: 'use_two_fingers' });
+					} else {
+						const oldX = mouseX;
+						const oldY = mouseY;
+						setCorrectedSinglePos(x, y, e.timeStamp);
+						moveDistance += point_distance(oldX, oldY, mouseX, mouseY);
+						map.move(mouseX - oldX, mouseY - oldY);
+						recordMousePos(e.timeStamp);
+						map.emit('singleMove', { x, y, id });
+					}
+					return true
+				},
+				singleUp(e, id, isSwitching) {
+					if (!isSwitching) applyInertia(map);
+					map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching });
+					if (moveDistance < 5 && !isSwitching) {
+						const stamp = e.timeStamp;
+						if (lastDoubleTouchParams) {
+							map.zoomSmooth(mouseX, mouseY, 0.5);
+							const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams;
+							map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 });
+						} else {
+							const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY;
+							lastSingleClickAt = stamp;
+							if (isDbl) map.zoomSmooth(mouseX, mouseY, 2);
+							map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id });
+						}
+					}
+					return true
+				},
+				doubleDown(e, id0, x0, y0, id1, x1, y1) {
+					mouseX = (x0 + x1) * 0.5;
+					mouseY = (y0 + y1) * 0.5;
+					lastDoubleTouch_dist = point_distance(x0, y0, x1, y1);
+					lastDoubleTouch_cx = mouseX;
+					lastDoubleTouch_cy = mouseY;
+					moveRecordedMousePos();
+					lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
+					map.emit('doubleDown', { id0, x0, y0, id1, x1, y1 });
+					return true
+				},
+				doubleMove(e, id0, x0, y0, id1, x1, y1) {
+					const cx = (x0 + x1) * 0.5;
+					const cy = (y0 + y1) * 0.5;
+					const cd = point_distance(x0, y0, x1, y1);
+					if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
+						map.move(cx - mouseX, cy - mouseY);
+						map.zoom(cx, cy, cd / lastDoubleTouch_dist);
+						moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist);
+						lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
+						mouseX = cx;
+						mouseY = cy;
+						lastDoubleTouch_dist = cd;
+						lastDoubleTouch_cx = cx;
+						lastDoubleTouch_cy = cy;
+						recordMousePos(e.timeStamp);
+						recordTouchDist(e.timeStamp);
+						map.emit('doubleMove', { id0, x0, y0, id1, x1, y1 });
+					}
+					return true
+				},
+				doubleUp(e, id0, id1) {
+					applyInertia(map);
+					lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x');
+					lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y');
+					lastDoubleTouch_stamp = e.timeStamp;
+					map.emit('doubleUp', { id0, id1 });
+					return true
+				},
+				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
+					if (!doNotInterfere || e.ctrlKey || e.metaKey) {
+						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240));
+						return true
+					} else {
+						map.emit('controlHint', { type: 'use_control_to_zoom' });
+						return false
+					}
+				},
+				singleHover(e, x, y) {
+					map.emit('singleHover', { x, y });
+				},
+			}).on({ startElem: map.getCanvas() });
 
 		/** @param {import('./map').LocMap} map */
 		this.register = map => {
@@ -1512,5 +1525,10 @@
 		map.register(controlLayer);
 	};
 
+	window.addEventListener('error', e => {
+		if (e.message === 'Script error.' && e.filename === '') return
+		alert(`${e.message} in ${e.filename}:${e.lineno}:${e.colno}`);
+	});
+
 }());
-//# sourceMappingURL=bundle.a2a6fbd1.js.map
+//# sourceMappingURL=bundle.ec994de7.js.map
