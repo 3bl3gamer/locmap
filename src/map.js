@@ -86,23 +86,23 @@ export function LocMap(wrap, conv) {
 	}
 
 	/** @param {number} lon */
-	this.lon2x = function (lon) {
+	this.lon2x = lon => {
 		return conv.lon2x(lon, zoom)
 	}
 	/** @param {number} lat */
-	this.lat2y = function (lat) {
+	this.lat2y = lat => {
 		return conv.lat2y(lat, zoom)
 	}
 	/** @param {number} lat */
-	this.meters2pixCoef = function (lat) {
+	this.meters2pixCoef = lat => {
 		return conv.meters2pixCoef(lat, zoom)
 	}
 	/** @param {number} x */
-	this.x2lon = function (x) {
+	this.x2lon = x => {
 		return conv.x2lon(x, zoom)
 	}
 	/** @param {number} y */
-	this.y2lat = function (y) {
+	this.y2lat = y => {
 		return conv.y2lat(y, zoom)
 	}
 
@@ -112,13 +112,13 @@ export function LocMap(wrap, conv) {
 
 	const layers = /** @type {MapLayer[]} */ ([])
 	/** @param {MapLayer} layer */
-	this.register = function (layer) {
+	this.register = layer => {
 		if (layers.includes(layer)) throw new Error('already registered')
 		layers.push(layer)
 		if (layer.register) layer.register(this)
 	}
 	/** @param {MapLayer} layer */
-	this.unregister = function (layer) {
+	this.unregister = layer => {
 		const pos = layers.indexOf(layer)
 		if (pos == -1) throw new Error('not registered yet')
 		layers.splice(pos, 1)
@@ -240,10 +240,12 @@ export function LocMap(wrap, conv) {
 	 * @param {number} delta
 	 */
 	this.zoom = (x, y, delta) => {
+		const prevZoom = zoom
 		zoom = Math.max(minZoom, zoom * delta)
 		level = Math.round(Math.log2(zoom) - 0.1) //extra level shift, or on half-level zoom text on tiles may be too small
-		xShift += (-x + curWidth / 2 - xShift) * (1 - delta)
-		yShift += (-y + curHeight / 2 - yShift) * (1 - delta)
+		const actualDelta = zoom / prevZoom
+		xShift += (-x + curWidth / 2 - xShift) * (1 - actualDelta)
+		yShift += (-y + curHeight / 2 - yShift) * (1 - actualDelta)
 		pos_screen2map()
 
 		updateLayers()

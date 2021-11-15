@@ -232,7 +232,8 @@ export function ControlLayer(opts) {
 				if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
 					map.move(cx - mouseX, cy - mouseY)
 					map.zoom(cx, cy, cd / lastDoubleTouch_dist)
-					moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist)
+					moveDistance +=
+						point_distance(mouseX, mouseY, cx, cy) + Math.abs(cd - lastDoubleTouch_dist)
 					lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1]
 					mouseX = cx
 					mouseY = cy
