@@ -13,40 +13,17 @@ export class TileContainer {
     constructor(tileW: number, pathFunc: (x: number, y: number, z: number) => string);
     /**
      * @param {import('./map').LocMap} map
-     * @param {number} x
-     * @param {number} y
+     * @param {number} xShift
+     * @param {number} yShift
      * @param {number} scale
-     * @param {number} i
-     * @param {number} j
+     * @param {number} iFrom
+     * @param {number} jFrom
+     * @param {number} iCount
+     * @param {number} jCount
      * @param {number} level
-     * @param {boolean} loadIfMissing
+     * @param {boolean} shouldLoad
      */
-    tryDrawTile: (map: import('./map').LocMap, x: number, y: number, scale: number, i: number, j: number, level: number, loadIfMissing: boolean) => boolean;
-    /**
-     * @param {import('./map').LocMap} map
-     * @param {number} x
-     * @param {number} y
-     * @param {number} scale
-     * @param {number} partN
-     * @param {number} partI
-     * @param {number} partJ
-     * @param {number} i
-     * @param {number} j
-     * @param {number} level
-     */
-    tryDrawPart: (map: import('./map').LocMap, x: number, y: number, scale: number, partN: number, partI: number, partJ: number, i: number, j: number, level: number) => boolean;
-    /**
-     * @param {import('./map').LocMap} map
-     * @param {number} x
-     * @param {number} y
-     * @param {number} scale
-     * @param {number} qi
-     * @param {number} qj
-     * @param {number} i
-     * @param {number} j
-     * @param {number} level
-     */
-    tryDrawAsQuarter: (map: import('./map').LocMap, x: number, y: number, scale: number, qi: number, qj: number, i: number, j: number, level: number) => boolean;
+    draw: (map: import('./map').LocMap, xShift: number, yShift: number, scale: number, iFrom: number, jFrom: number, iCount: number, jCount: number, level: number, shouldLoad: boolean) => void;
     getTileWidth: () => number;
     clearCache: () => void;
 }

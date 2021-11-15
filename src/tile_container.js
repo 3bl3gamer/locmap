@@ -69,6 +69,16 @@ export function TileContainer(tileW, pathFunc) {
 	}
 
 	/**
+	 * @param {number} i
+	 * @param {number} j
+	 * @param {number} level
+	 */
+	function canDrawTile(i, j, level) {
+		const img = cache.get(getTileKey(i, j, level))
+		return !!img && isLoaded(img)
+	}
+
+	/**
 	 * @param {import('./map').LocMap} map
 	 * @param {number} x
 	 * @param {number} y
@@ -78,8 +88,7 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} level
 	 * @param {boolean} loadIfMissing
 	 */
-	this.tryDrawTile = (map, x, y, scale, i, j, level, loadIfMissing) => {
-		//console.log("drawing tile", x,y,scale, i,j,l)
+	function tryDrawTile(map, x, y, scale, i, j, level, loadIfMissing) {
 		const key = getTileKey(i, j, level)
 		const img = cache.get(key)
 		if (img === undefined) {
@@ -108,9 +117,8 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} j
 	 * @param {number} level
 	 */
-	this.tryDrawPart = (map, x, y, scale, partN, partI, partJ, i, j, level) => {
-		const key = getTileKey(i, j, level)
-		const img = cache.get(key)
+	function tryDrawPart(map, x, y, scale, partN, partI, partJ, i, j, level) {
+		const img = cache.get(getTileKey(i, j, level))
 		if (!img || !isLoaded(img)) return false
 		const partW = tileW / partN
 		drawTile(map, img,
@@ -130,15 +138,80 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} j
 	 * @param {number} level
 	 */
-	this.tryDrawAsQuarter = (map, x, y, scale, qi, qj, i, j, level) => {
-		const key = getTileKey(i, j, level)
-		const img = cache.get(key)
+	function tryDrawAsQuarter(map, x, y, scale, qi, qj, i, j, level) {
+		const img = cache.get(getTileKey(i, j, level))
 		if (!img || !isLoaded(img)) return false
 		const w = (tileW / 2) * scale
 		drawTile(map, img,
 		         0,0, tileW,tileW,
 		         x+qi*w,y+qj*w, w,w) //prettier-ignore
 		return true
+	}
+
+	const levelDifference = -Math.log2(tileW)
+
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} scale
+	 * @param {number} i
+	 * @param {number} j
+	 * @param {number} level
+	 * @param {boolean} shouldLoad
+	 */
+	function drawOneTile(map, x, y, scale, i, j, level, shouldLoad) {
+		let drawn = tryDrawTile(map, x, y, scale, i, j, level, shouldLoad)
+		if (drawn) return
+
+		for (let sub = 1; sub <= 2; sub++) {
+			const n = 1 << sub
+			drawn = tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub) //prettier-ignore
+			if (drawn) return
+		}
+
+		drawTilePlaceholder(map, x, y, scale)
+
+		tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1) //prettier-ignore
+		tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1) //prettier-ignore
+		tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1) //prettier-ignore
+		tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1) //prettier-ignore
+	}
+
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} scale
+	 */
+	function drawTilePlaceholder(map, x, y, scale) {
+		const rc = map.get2dContext()
+		if (rc === null) return
+		const w = tileW * scale
+		const margin = 1.5
+		rc.strokeStyle = '#eee'
+		rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2)
+	}
+
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} xShift
+	 * @param {number} yShift
+	 * @param {number} scale
+	 * @param {number} iFrom
+	 * @param {number} jFrom
+	 * @param {number} iCount
+	 * @param {number} jCount
+	 * @param {number} level
+	 * @param {boolean} shouldLoad
+	 */
+	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
+		for (let i = 0; i < iCount; i++)
+			for (let j = 0; j < jCount; j++) {
+				const dx = xShift + i * tileW * scale
+				const dy = yShift + j * tileW * scale
+				drawOneTile(map, dx, dy, scale, iFrom + i, jFrom + j, level, shouldLoad)
+			}
 	}
 
 	this.getTileWidth = () => tileW
