@@ -1,6 +1,6 @@
 Simple modular canvas-based tile map engine.
 
-4.8 KiB after min+gizp, [more](#size).
+4.7 KiB after min+gizp, [more](#size).
 
 [Example](https://3bl3gamer.github.io/locmap/examples/)
 
@@ -26,7 +26,7 @@ window.onresize = map.resize
 
 ```
         bundled minfied min+gz
-base      17.3     5.7    2.4  KiB
-regular   35.6    11.6    4.8  KiB
-full      41.0    14.2    5.7  KiB
+base      17.2     5.4    2.3  KiB
+regular   35.5    11.3    4.7  KiB
+full      40.9    13.9    5.7  KiB
 ```

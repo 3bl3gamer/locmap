@@ -89,23 +89,23 @@
 		}
 
 		/** @param {number} lon */
-		this.lon2x = function (lon) {
+		this.lon2x = lon => {
 			return conv.lon2x(lon, zoom)
 		};
 		/** @param {number} lat */
-		this.lat2y = function (lat) {
+		this.lat2y = lat => {
 			return conv.lat2y(lat, zoom)
 		};
 		/** @param {number} lat */
-		this.meters2pixCoef = function (lat) {
+		this.meters2pixCoef = lat => {
 			return conv.meters2pixCoef(lat, zoom)
 		};
 		/** @param {number} x */
-		this.x2lon = function (x) {
+		this.x2lon = x => {
 			return conv.x2lon(x, zoom)
 		};
 		/** @param {number} y */
-		this.y2lat = function (y) {
+		this.y2lat = y => {
 			return conv.y2lat(y, zoom)
 		};
 
@@ -115,13 +115,13 @@
 
 		const layers = /** @type {MapLayer[]} */ ([]);
 		/** @param {MapLayer} layer */
-		this.register = function (layer) {
+		this.register = layer => {
 			if (layers.includes(layer)) throw new Error('already registered')
 			layers.push(layer);
 			if (layer.register) layer.register(this);
 		};
 		/** @param {MapLayer} layer */
-		this.unregister = function (layer) {
+		this.unregister = layer => {
 			const pos = layers.indexOf(layer);
 			if (pos == -1) throw new Error('not registered yet')
 			layers.splice(pos, 1);
@@ -243,10 +243,12 @@
 		 * @param {number} delta
 		 */
 		this.zoom = (x, y, delta) => {
+			const prevZoom = zoom;
 			zoom = Math.max(minZoom, zoom * delta);
 			level = Math.round(Math.log2(zoom) - 0.1); //extra level shift, or on half-level zoom text on tiles may be too small
-			xShift += (-x + curWidth / 2 - xShift) * (1 - delta);
-			yShift += (-y + curHeight / 2 - yShift) * (1 - delta);
+			const actualDelta = zoom / prevZoom;
+			xShift += (-x + curWidth / 2 - xShift) * (1 - actualDelta);
+			yShift += (-y + curHeight / 2 - yShift) * (1 - actualDelta);
 			pos_screen2map();
 
 			updateLayers();
@@ -897,7 +899,8 @@
 					if (doubleMoveHasChanged(cx, cy, cd, e.timeStamp)) {
 						map.move(cx - mouseX, cy - mouseY);
 						map.zoom(cx, cy, cd / lastDoubleTouch_dist);
-						moveDistance += point_distance(mouseX, mouseY, cx, cy) + (cd - lastDoubleTouch_dist);
+						moveDistance +=
+							point_distance(mouseX, mouseY, cx, cy) + Math.abs(cd - lastDoubleTouch_dist);
 						lastDoubleTouchParams = [id0, x0, y0, id1, x1, y1];
 						mouseX = cx;
 						mouseY = cy;
@@ -1091,8 +1094,7 @@
 		 * @param {number} level
 		 * @param {boolean} loadIfMissing
 		 */
-		this.tryDrawTile = (map, x, y, scale, i, j, level, loadIfMissing) => {
-			//console.log("drawing tile", x,y,scale, i,j,l)
+		function tryDrawTile(map, x, y, scale, i, j, level, loadIfMissing) {
 			const key = getTileKey(i, j, level);
 			const img = cache.get(key);
 			if (img === undefined) {
@@ -1107,7 +1109,7 @@
 				}
 				return isLoaded(img)
 			}
-		};
+		}
 
 		/**
 		 * @param {import('./map').LocMap} map
@@ -1121,16 +1123,15 @@
 		 * @param {number} j
 		 * @param {number} level
 		 */
-		this.tryDrawPart = (map, x, y, scale, partN, partI, partJ, i, j, level) => {
-			const key = getTileKey(i, j, level);
-			const img = cache.get(key);
+		function tryDrawPart(map, x, y, scale, partN, partI, partJ, i, j, level) {
+			const img = cache.get(getTileKey(i, j, level));
 			if (!img || !isLoaded(img)) return false
 			const partW = tileW / partN;
 			drawTile(map, img,
 			         partI*partW,partJ*partW, partW,partW,
 			         x,y, tileW*scale,tileW*scale); //prettier-ignore
 			return true
-		};
+		}
 
 		/**
 		 * @param {import('./map').LocMap} map
@@ -1143,15 +1144,78 @@
 		 * @param {number} j
 		 * @param {number} level
 		 */
-		this.tryDrawAsQuarter = (map, x, y, scale, qi, qj, i, j, level) => {
-			const key = getTileKey(i, j, level);
-			const img = cache.get(key);
+		function tryDrawAsQuarter(map, x, y, scale, qi, qj, i, j, level) {
+			const img = cache.get(getTileKey(i, j, level));
 			if (!img || !isLoaded(img)) return false
 			const w = (tileW / 2) * scale;
 			drawTile(map, img,
 			         0,0, tileW,tileW,
 			         x+qi*w,y+qj*w, w,w); //prettier-ignore
 			return true
+		}
+
+		/**
+		 * @param {import('./map').LocMap} map
+		 * @param {number} x
+		 * @param {number} y
+		 * @param {number} scale
+		 * @param {number} i
+		 * @param {number} j
+		 * @param {number} level
+		 * @param {boolean} shouldLoad
+		 */
+		function drawOneTile(map, x, y, scale, i, j, level, shouldLoad) {
+			let drawn = tryDrawTile(map, x, y, scale, i, j, level, shouldLoad);
+			if (drawn) return
+
+			for (let sub = 1; sub <= 2; sub++) {
+				const n = 1 << sub;
+				drawn = tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub); //prettier-ignore
+				if (drawn) return
+			}
+
+			drawTilePlaceholder(map, x, y, scale);
+
+			tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1); //prettier-ignore
+			tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1); //prettier-ignore
+			tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1); //prettier-ignore
+			tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1); //prettier-ignore
+		}
+
+		/**
+		 * @param {import('./map').LocMap} map
+		 * @param {number} x
+		 * @param {number} y
+		 * @param {number} scale
+		 */
+		function drawTilePlaceholder(map, x, y, scale) {
+			const rc = map.get2dContext();
+			if (rc === null) return
+			const w = tileW * scale;
+			const margin = 1.5;
+			rc.strokeStyle = '#eee';
+			rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2);
+		}
+
+		/**
+		 * @param {import('./map').LocMap} map
+		 * @param {number} xShift
+		 * @param {number} yShift
+		 * @param {number} scale
+		 * @param {number} iFrom
+		 * @param {number} jFrom
+		 * @param {number} iCount
+		 * @param {number} jCount
+		 * @param {number} level
+		 * @param {boolean} shouldLoad
+		 */
+		this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
+			for (let i = 0; i < iCount; i++)
+				for (let j = 0; j < jCount; j++) {
+					const dx = xShift + i * tileW * scale;
+					const dy = yShift + j * tileW * scale;
+					drawOneTile(map, dx, dy, scale, iFrom + i, jFrom + j, level, shouldLoad);
+				}
 		};
 
 		this.getTileWidth = () => tileW;
@@ -1168,41 +1232,6 @@
 	function TileLayer(tileHost) {
 		const levelDifference = -Math.log2(tileHost.getTileWidth());
 		const zoomDifference = 1 / tileHost.getTileWidth();
-
-		let scale = 1;
-		let draw_x_shift;
-		let draw_y_shift;
-		let draw_i_from;
-		let draw_j_from;
-		let draw_i_numb;
-		let draw_j_numb;
-		/** @param {import('./map').LocMap} map */
-		function updateDrawParams(map) {
-			const level_grid_width = 1 << (map.getLevel() + levelDifference);
-			scale = (map.getZoom() * zoomDifference) / level_grid_width;
-			const block_size = tileHost.getTileWidth() * scale;
-			const x_shift = -map.getProjConv().lon2x(map.getLon(), map.getZoom()) + map.getTopLeftXOffset();
-			const y_shift = -map.getProjConv().lat2y(map.getLat(), map.getZoom()) + map.getTopLeftYOffset();
-
-			if (x_shift < 0) {
-				draw_x_shift = x_shift % block_size;
-				draw_i_from = (-x_shift / block_size) | 0;
-			} else {
-				draw_x_shift = x_shift;
-				draw_i_from = 0;
-			}
-			if (y_shift < 0) {
-				draw_y_shift = y_shift % block_size;
-				draw_j_from = (-y_shift / block_size) | 0;
-			} else {
-				draw_y_shift = y_shift;
-				draw_j_from = 0;
-			}
-
-			draw_i_numb = Math.min(level_grid_width-draw_i_from, ((map.getWidth() -draw_x_shift)/block_size|0)+1); //prettier-ignore
-			draw_j_numb = Math.min(level_grid_width-draw_j_from, ((map.getHeight()-draw_y_shift)/block_size|0)+1); //prettier-ignore
-			//console.log(scale, draw_i_from, draw_j_from, draw_i_numb, draw_j_numb)
-		}
 
 		let shouldLoadTiles = true;
 		let lastZoomAt = 0;
@@ -1225,49 +1254,6 @@
 			}, durationMS);
 		}
 
-		/**
-		 * @param {import('./map').LocMap} map
-		 * @param {number} x
-		 * @param {number} y
-		 * @param {number} scale
-		 */
-		function drawTilePlaceholder(map, x, y, scale) {
-			const rc = map.get2dContext();
-			if (rc === null) return
-			const w = tileHost.getTileWidth() * scale;
-			const margin = 1.5;
-			rc.strokeStyle = '#eee';
-			rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2);
-		}
-
-		/**
-		 * @param {import('./map').LocMap} map
-		 * @param {number} x
-		 * @param {number} y
-		 * @param {number} scale
-		 * @param {number} i
-		 * @param {number} j
-		 */
-		function drawOneTile(map, x, y, scale, i, j) {
-			const level = map.getLevel() + levelDifference;
-
-			let drawn = tileHost.tryDrawTile(map, x, y, scale, i, j, level, shouldLoadTiles);
-			if (drawn) return
-
-			for (let sub = 1; sub <= 2; sub++) {
-				const n = 1 << sub;
-				drawn = tileHost.tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub); //prettier-ignore
-				if (drawn) return
-			}
-
-			drawTilePlaceholder(map, x, y, scale);
-
-			tileHost.tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1); //prettier-ignore
-			tileHost.tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1); //prettier-ignore
-			tileHost.tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1); //prettier-ignore
-			tileHost.tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1); //prettier-ignore
-		}
-
 		/** @param {import('./map').LocMap} map */
 		this.unregister = map => {
 			tileHost.clearCache();
@@ -1275,20 +1261,34 @@
 
 		/** @param {import('./map').LocMap} map */
 		this.redraw = map => {
-			const rc = map.get2dContext();
-			if (rc === null) return
-			rc.save();
+			const level = map.getLevel() + levelDifference;
+			const tileGridSize = 1 << level;
+			const scale = (map.getZoom() * zoomDifference) / tileGridSize;
+			const blockSize = tileHost.getTileWidth() * scale;
+			const mapXShift = map.getTopLeftXShift();
+			const mapYShift = map.getTopLeftYShift();
 
-			updateDrawParams(map);
+			let xShift, iFrom;
+			if (mapXShift > 0) {
+				xShift = -mapXShift % blockSize;
+				iFrom = (mapXShift / blockSize) | 0;
+			} else {
+				xShift = -mapXShift;
+				iFrom = 0;
+			}
+			let yShift, jFrom;
+			if (mapYShift > 0) {
+				yShift = -mapYShift % blockSize;
+				jFrom = (mapYShift / blockSize) | 0;
+			} else {
+				yShift = -mapYShift;
+				jFrom = 0;
+			}
 
-			for (let i = 0; i < draw_i_numb; i++)
-				for (let j = 0; j < draw_j_numb; j++) {
-					const dx = draw_x_shift + i * tileHost.getTileWidth() * scale;
-					const dy = draw_y_shift + j * tileHost.getTileWidth() * scale;
-					drawOneTile(map, dx, dy, scale, draw_i_from + i, draw_j_from + j);
-				}
+			const iCount = Math.min(tileGridSize - iFrom, (((map.getWidth() - xShift) / blockSize) | 0) + 1);
+			const jCount = Math.min(tileGridSize - jFrom, (((map.getHeight() - yShift) / blockSize) | 0) + 1);
 
-			rc.restore();
+			tileHost.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles);
 		};
 
 		/** @type {import('./map').MapEventHandlers} */
@@ -1531,4 +1531,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.ec994de7.js.map
+//# sourceMappingURL=bundle.f152ad9e.js.map
