@@ -120,7 +120,7 @@ export function LocMap(wrap, conv) {
 	/** @param {MapLayer} layer */
 	this.unregister = layer => {
 		const pos = layers.indexOf(layer)
-		if (pos == -1) throw new Error('not registered yet')
+		if (pos === -1) throw new Error('not registered yet')
 		layers.splice(pos, 1)
 		if (layer.unregister) layer.unregister(this)
 	}

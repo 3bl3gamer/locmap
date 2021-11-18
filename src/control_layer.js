@@ -116,7 +116,6 @@ export function ControlLayer(opts) {
 	}
 	/** @param {import('./map').LocMap} map */
 	function applyInertia(map) {
-		const now = performance.now()
 		const dx = getApproximatedDelta(lastMoves, 'x')
 		const dy = getApproximatedDelta(lastMoves, 'y')
 		const dz = getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist + 1

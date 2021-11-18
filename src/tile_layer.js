@@ -1,5 +1,3 @@
-const TILE_FADE_IN_DURATION = 150
-
 /**
  * @class
  * @param {import('./tile_container').TileContainer} tileHost

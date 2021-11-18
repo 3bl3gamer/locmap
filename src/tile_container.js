@@ -69,16 +69,6 @@ export function TileContainer(tileW, pathFunc) {
 	}
 
 	/**
-	 * @param {number} i
-	 * @param {number} j
-	 * @param {number} level
-	 */
-	function canDrawTile(i, j, level) {
-		const img = cache.get(getTileKey(i, j, level))
-		return !!img && isLoaded(img)
-	}
-
-	/**
 	 * @param {import('./map').LocMap} map
 	 * @param {number} x
 	 * @param {number} y
@@ -147,8 +137,6 @@ export function TileContainer(tileW, pathFunc) {
 		         x+qi*w,y+qj*w, w,w) //prettier-ignore
 		return true
 	}
-
-	const levelDifference = -Math.log2(tileW)
 
 	/**
 	 * @param {import('./map').LocMap} map

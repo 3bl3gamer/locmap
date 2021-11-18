@@ -1,12 +1,15 @@
 #!/bin/node
-const { promises: fs, createReadStream } = require('fs')
-const os = require('os')
-const cp = require('child_process')
-const { pipeline } = require('stream')
-const { createGzip } = require('zlib')
-const { promisify } = require('util')
+import { promises as fs, createReadStream } from 'fs'
+import { spawn } from 'child_process'
+import { pipeline } from 'stream'
+import { createGzip } from 'zlib'
+import { promisify } from 'util'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
 const pipe = promisify(pipeline)
 
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 const baseDir = `${__dirname}/..`
 const mapSrcDir = `${baseDir}/src`
 
@@ -24,7 +27,6 @@ async function getSizes(indexSrc) {
 		const indexFPath = `${tempDir}/index.js`
 		const bundleFPath = `${tempDir}/bundle.js`
 		const bundleMinFPath = `${tempDir}/bundle.min.js`
-		const bundleMinGzipFPath = `${tempDir}/bundle.min.js.gz`
 		const configFPath = `${tempDir}/rollup.config.js`
 
 		await fs.writeFile(indexFPath, indexSrc)
@@ -48,7 +50,7 @@ export default async function (commandOptions) {
 		)
 
 		await new Promise((resolve, reject) => {
-			const child = cp.spawn(
+			const child = spawn(
 				`${baseDir}/node_modules/.bin/rollup`, //
 				['--config', configFPath],
 				{ stdio: 'inherit' },

@@ -5,6 +5,7 @@
 		"strict": true,
 		"noImplicitAny": false,
 		"sourceMap": true,
+		"module": "esnext",
 		// fixes node_modules package resolution
 		"moduleResolution": "node",
 		"baseUrl": "src"
