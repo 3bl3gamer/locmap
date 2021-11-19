@@ -27,3 +27,8 @@ export class TileContainer {
     getTileWidth: () => number;
     clearCache: () => void;
 }
+export type Tile = {
+    img: HTMLImageElement;
+    appearAt: number;
+    drawIter: number;
+};
