@@ -1,4 +1,4 @@
-/** @typedef {{img:HTMLImageElement, appearAt:number, drawIter:number}} Tile */
+/** @typedef {{img:HTMLImageElement, x:number, y:number, z:number, appearAt:number}} Tile */
 
 /** @param {Tile} tile */
 function isLoaded(tile) {
@@ -22,7 +22,9 @@ function getTileKey(x, y, z) {
  */
 export function TileContainer(tileW, pathFunc) {
 	const cache = /** @type {Map<string,Tile>} */ (new Map())
-	let drawIter = 0
+	let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
+	let curDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
+	const lastDrawnTilesArr = /**@type {Tile[]}*/ ([])
 
 	/**
 	 * @param {import('./map').LocMap} map
@@ -33,7 +35,7 @@ export function TileContainer(tileW, pathFunc) {
 	 */
 	function makeTile(map, x, y, z) {
 		const img = new Image()
-		const tile = { img, appearAt: 0, drawIter: -1 }
+		const tile = { img, x, y, z, appearAt: 0 }
 		img.src = pathFunc(x, y, z)
 		function onLoad() {
 			map.requestRedraw()
@@ -72,16 +74,15 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} i
 	 * @param {number} j
 	 * @param {number} level
-	 * @param {boolean} needRecent
 	 * @param {boolean} useOpacity
 	 */
-	function canFullyDrawTile(map, i, j, level, needRecent, useOpacity) {
+	function canFullyDrawRecentTile(map, i, j, level, useOpacity) {
 		const tile = findTile(map, i, j, level, false)
 		return (
 			!!tile &&
 			isLoaded(tile) &&
 			// if tile not drawn recently, it will became transparent on next draw
-			(!(useOpacity || needRecent) || tileDrawnRecently(tile)) &&
+			tileDrawnRecently(tile) &&
 			(!useOpacity || getTileOpacity(tile) >= 1)
 		)
 	}
@@ -93,7 +94,7 @@ export function TileContainer(tileW, pathFunc) {
 
 	/** @param {Tile} tile */
 	function tileDrawnRecently(tile) {
-		return tile.drawIter >= drawIter - 1
+		return lastDrawnTiles.has(tile)
 	}
 
 	/**
@@ -113,8 +114,10 @@ export function TileContainer(tileW, pathFunc) {
 		const rc = map.get2dContext()
 		if (!rc) return
 
-		if (!tileDrawnRecently(tile)) tile.appearAt = performance.now() - 16 //making it "appear" a bit earlier, so now it won't be fully transparent
-		tile.drawIter = drawIter
+		if (!tileDrawnRecently(tile)) {
+			tile.appearAt = performance.now() - 16 //making it "appear" a bit earlier, so now tile won't be fully transparent
+		}
+		curDrawnTiles.add(tile)
 
 		const s = devicePixelRatio
 		// rounding to real canvas pixels
@@ -126,6 +129,7 @@ export function TileContainer(tileW, pathFunc) {
 
 		if (alpha < 1) rc.globalAlpha = alpha
 		rc.drawImage(tile.img, sx, sy, sw, sh, rx, ry, w, h)
+		// rc.fillText(tile.x + '/' + tile.y, rx, ry + 12)
 		if (alpha < 1) {
 			rc.globalAlpha = 1
 			map.requestRedraw()
@@ -140,80 +144,60 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {number} i
 	 * @param {number} j
 	 * @param {number} level
+	 * @param {number} tileX
+	 * @param {number} tileY
+	 * @param {number} tileZ
 	 * @param {boolean} loadIfMissing
+	 * @param {boolean} useOpacity
+	 * @returns {boolean}
 	 */
-	function tryDrawTile(map, x, y, scale, i, j, level, loadIfMissing) {
-		const tile = findTile(map, i, j, level, loadIfMissing)
-		if (!tile || !isLoaded(tile)) return false
-		const w = tileW
-		drawTile(map, tile, true,
-		         0,0, w,w,
-		         x,y, w*scale,w*scale) //prettier-ignore
-		return true
+	function tryDrawTile(map, x, y, scale, i, j, level, tileX, tileY, tileZ, loadIfMissing, useOpacity) {
+		const tile = findTile(map, tileX, tileY, tileZ, loadIfMissing)
+		return !!tile && tryDrawTileObj(map, tile, x, y, scale, i, j, level, useOpacity)
 	}
 
 	/**
 	 * @param {import('./map').LocMap} map
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} scale
-	 * @param {number} partN
-	 * @param {number} partI
-	 * @param {number} partJ
-	 * @param {number} i
-	 * @param {number} j
-	 * @param {number} level
-	 */
-	function tryDrawPart(map, x, y, scale, partN, partI, partJ, i, j, level) {
-		const tile = findTile(map, i, j, level, false)
-		if (!tile || !isLoaded(tile)) return false
-		const partW = tileW / partN
-		drawTile(map, tile, false,
-		         partI*partW,partJ*partW, partW,partW,
-		         x,y, tileW*scale,tileW*scale) //prettier-ignore
-		return true
-	}
-
-	/**
-	 * @param {import('./map').LocMap} map
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} scale
-	 * @param {number} qi
-	 * @param {number} qj
-	 * @param {number} i
-	 * @param {number} j
-	 * @param {number} level
-	 */
-	function tryDrawAsQuarter(map, x, y, scale, qi, qj, i, j, level) {
-		const tile = findTile(map, i, j, level, false)
-		if (!tile || !isLoaded(tile)) return false
-		const w = (tileW / 2) * scale
-		drawTile(map, tile, false,
-		         0,0, tileW,tileW,
-		         x+qi*w,y+qj*w, w,w) //prettier-ignore
-		return true
-	}
-
-	/**
-	 * @param {import('./map').LocMap} map
+	 * @param {Tile} tile
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} scale
 	 * @param {number} i
 	 * @param {number} j
 	 * @param {number} level
+	 * @param {boolean} useOpacity
+	 * @returns {boolean}
 	 */
-	function drawUpperTileParts(map, x, y, scale, i, j, level) {
-		let drawn = false
-		for (let l = level - 1; l >= 0; l--) {
-			const sub = level - l
-			const n = 1 << sub
-			drawn = tryDrawPart(map, x, y, scale, n, i%n, j%n, i>>sub, j>>sub, level - sub) //prettier-ignore
-			if (drawn) break
+	function tryDrawTileObj(map, tile, x, y, scale, i, j, level, useOpacity) {
+		if (!isLoaded(tile)) return false
+		const dlevel = tile.z - level
+		const dzoom = Math.pow(2, dlevel)
+		const di = tile.x - i * dzoom
+		const dj = tile.y - j * dzoom
+
+		let sx, sy, sw, dw
+		if (dlevel >= 0) {
+			if (di < 0 || dj < 0 || di >= dzoom || dj >= dzoom) return false
+			dw = (tileW * scale) / dzoom
+			x += di * dw
+			y += dj * dw
+			sx = 0
+			sy = 0
+			sw = tileW
+		} else {
+			sw = tileW * dzoom
+			sx = -di * tileW
+			sy = -dj * tileW
+			if (sx < 0 || sy < 0 || sx >= tileW || sy >= tileW) return false
+			dw = tileW * scale
 		}
-		return drawn
+
+		drawTile(map, tile, useOpacity,
+		         sx,sy, sw,sw,
+		         x,y, dw,dw) //prettier-ignore
+		return true
 	}
+
 	/**
 	 * @param {import('./map').LocMap} map
 	 * @param {number} x
@@ -225,28 +209,43 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {boolean} shouldLoad
 	 */
 	function drawOneTile(map, x, y, scale, i, j, level, shouldLoad) {
-		if (!canFullyDrawTile(map, i, j, level, true, true)) {
+		if (!canFullyDrawRecentTile(map, i, j, level, true)) {
 			//prettier-ignore
 			const canFillByQuaters =
-				canFullyDrawTile(map, i*2,   j*2,   level+1, true, false) &&
-				canFullyDrawTile(map, i*2,   j*2+1, level+1, true, false) &&
-				canFullyDrawTile(map, i*2+1, j*2,   level+1, true, false) &&
-				canFullyDrawTile(map, i*2+1, j*2+1, level+1, true, false)
+				canFullyDrawRecentTile(map, i*2,   j*2,   level+1, false) &&
+				canFullyDrawRecentTile(map, i*2,   j*2+1, level+1, false) &&
+				canFullyDrawRecentTile(map, i*2+1, j*2,   level+1, false) &&
+				canFullyDrawRecentTile(map, i*2+1, j*2+1, level+1, false)
 
-			let drawn = false
-			if (!canFillByQuaters) drawn = drawUpperTileParts(map, x, y, scale, i, j, level)
+			let upperTileDrawn = false
+			if (!canFillByQuaters) {
+				// drawing upper tiles parts
+				for (let l = level - 1; l >= 0; l--) {
+					const sub = level - l
+					upperTileDrawn = tryDrawTile(map, x,y,scale, i,j,level, i>>sub,j>>sub,level-sub, false, false) //prettier-ignore
+					if (upperTileDrawn) break
+				}
+			}
 
-			if (!drawn) {
+			if (!upperTileDrawn) {
 				drawTilePlaceholder(map, x, y, scale)
+				if (canFillByQuaters) {
+					// drawing lower tiles as 2x2
+					for (let di = 0; di <= 1; di++)
+						for (let dj = 0; dj <= 1; dj++)
+							tryDrawTile(map, x, y, scale, i, j, level, i*2+di, j*2+dj, level+1, false, false) //prettier-ignore
+				}
+			}
 
-				tryDrawAsQuarter(map, x,y,scale, 0,0, i*2  ,j*2  , level+1) //prettier-ignore
-				tryDrawAsQuarter(map, x,y,scale, 0,1, i*2  ,j*2+1, level+1) //prettier-ignore
-				tryDrawAsQuarter(map, x,y,scale, 1,0, i*2+1,j*2  , level+1) //prettier-ignore
-				tryDrawAsQuarter(map, x,y,scale, 1,1, i*2+1,j*2+1, level+1) //prettier-ignore
+			// drawing additional (to 2x2) lower tiles from previous frames, useful for fast zoom-out animation
+			for (let k = 0; k < lastDrawnTilesArr.length; k++) {
+				const tile = lastDrawnTilesArr[k]
+				// skipping layer+1 since it is handled by upper 2x2
+				if (tile.z >= level + 2) tryDrawTileObj(map, tile, x, y, scale, i, j, level, true)
 			}
 		}
 
-		return tryDrawTile(map, x, y, scale, i, j, level, shouldLoad)
+		tryDrawTile(map, x, y, scale, i, j, level, i, j, level, shouldLoad, true)
 	}
 
 	/**
@@ -277,13 +276,18 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {boolean} shouldLoad
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
+		curDrawnTiles.clear()
+		lastDrawnTilesArr.length = 0
+		lastDrawnTiles.forEach(x => lastDrawnTilesArr.push(x))
+
 		for (let i = 0; i < iCount; i++)
 			for (let j = 0; j < jCount; j++) {
 				const dx = xShift + i * tileW * scale
 				const dy = yShift + j * tileW * scale
 				drawOneTile(map, dx, dy, scale, iFrom + i, jFrom + j, level, shouldLoad)
 			}
-		drawIter++
+
+		;[lastDrawnTiles, curDrawnTiles] = [curDrawnTiles, lastDrawnTiles]
 	}
 
 	this.getTileWidth = () => tileW

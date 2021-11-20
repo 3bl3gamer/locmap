@@ -29,6 +29,8 @@ export class TileContainer {
 }
 export type Tile = {
     img: HTMLImageElement;
+    x: number;
+    y: number;
+    z: number;
     appearAt: number;
-    drawIter: number;
 };
