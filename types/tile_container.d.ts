@@ -33,4 +33,5 @@ export type Tile = {
     y: number;
     z: number;
     appearAt: number;
+    lastDrawIter: number;
 };

@@ -1,4 +1,4 @@
-/** @typedef {{img:HTMLImageElement, x:number, y:number, z:number, appearAt:number}} Tile */
+/** @typedef {{img:HTMLImageElement, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile */
 
 /** @param {Tile} tile */
 function isLoaded(tile) {
@@ -22,9 +22,11 @@ function getTileKey(x, y, z) {
  */
 export function TileContainer(tileW, pathFunc) {
 	const cache = /** @type {Map<string,Tile>} */ (new Map())
+
 	let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
-	let curDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
-	const lastDrawnTilesArr = /**@type {Tile[]}*/ ([])
+	const lastDrawnUnderLevelPlus2TilesArr = /**@type {Tile[]}*/ ([])
+
+	let drawIter = 0
 
 	/**
 	 * @param {import('./map').LocMap} map
@@ -35,7 +37,7 @@ export function TileContainer(tileW, pathFunc) {
 	 */
 	function makeTile(map, x, y, z) {
 		const img = new Image()
-		const tile = { img, x, y, z, appearAt: 0 }
+		const tile = { img, x, y, z, appearAt: 0, lastDrawIter: 0 }
 		img.src = pathFunc(x, y, z)
 		function onLoad() {
 			map.requestRedraw()
@@ -94,7 +96,7 @@ export function TileContainer(tileW, pathFunc) {
 
 	/** @param {Tile} tile */
 	function tileDrawnRecently(tile) {
-		return lastDrawnTiles.has(tile)
+		return tile.lastDrawIter >= drawIter - 1
 	}
 
 	/**
@@ -117,7 +119,8 @@ export function TileContainer(tileW, pathFunc) {
 		if (!tileDrawnRecently(tile)) {
 			tile.appearAt = performance.now() - 16 //making it "appear" a bit earlier, so now tile won't be fully transparent
 		}
-		curDrawnTiles.add(tile)
+		tile.lastDrawIter = drawIter
+		lastDrawnTiles.add(tile)
 
 		const s = devicePixelRatio
 		// rounding to real canvas pixels
@@ -237,11 +240,11 @@ export function TileContainer(tileW, pathFunc) {
 				}
 			}
 
-			// drawing additional (to 2x2) lower tiles from previous frames, useful for fast zoom-out animation
-			for (let k = 0; k < lastDrawnTilesArr.length; k++) {
-				const tile = lastDrawnTilesArr[k]
-				// skipping layer+1 since it is handled by upper 2x2
-				if (tile.z >= level + 2) tryDrawTileObj(map, tile, x, y, scale, i, j, level, true)
+			// drawing additional (to 2x2) lower tiles from previous frames, useful for fast zoom-out animation.
+			// skipping layer+1 since it is handled by upper 2x2
+			for (let k = 0; k < lastDrawnUnderLevelPlus2TilesArr.length; k++) {
+				const tile = lastDrawnUnderLevelPlus2TilesArr[k]
+				tryDrawTileObj(map, tile, x, y, scale, i, j, level, true)
 			}
 		}
 
@@ -276,9 +279,10 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {boolean} shouldLoad
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
-		curDrawnTiles.clear()
-		lastDrawnTilesArr.length = 0
-		lastDrawnTiles.forEach(x => lastDrawnTilesArr.push(x))
+		lastDrawnUnderLevelPlus2TilesArr.length = 0
+		lastDrawnTiles.forEach(x => x.z >= level + 2 && lastDrawnUnderLevelPlus2TilesArr.push(x))
+		lastDrawnTiles.clear()
+		drawIter++
 
 		for (let i = 0; i < iCount; i++)
 			for (let j = 0; j < jCount; j++) {
@@ -287,12 +291,25 @@ export function TileContainer(tileW, pathFunc) {
 				drawOneTile(map, dx, dy, scale, iFrom + i, jFrom + j, level, shouldLoad)
 			}
 
-		;[lastDrawnTiles, curDrawnTiles] = [curDrawnTiles, lastDrawnTiles]
+		const cacheMaxSize = 10 * Math.max(10, (iCount * jCount * scale * scale) | 0)
+		for (let attempt = 0; attempt < 4 && cache.size > cacheMaxSize; attempt++) {
+			let oldestIter = Infinity
+			cache.forEach(tile => (oldestIter = Math.min(oldestIter, tile.lastDrawIter)))
+			cache.forEach((tile, key) => {
+				if (tile.lastDrawIter === oldestIter) {
+					cache.delete(key)
+					lastDrawnTiles.delete(tile)
+				}
+			})
+		}
 	}
 
 	this.getTileWidth = () => tileW
 
 	this.clearCache = () => {
+		cache.forEach(x => (x.img.src = ''))
 		cache.clear()
+		lastDrawnTiles.clear()
+		lastDrawnUnderLevelPlus2TilesArr.length = 0
 	}
 }
