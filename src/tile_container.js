@@ -284,11 +284,18 @@ export function TileContainer(tileW, pathFunc) {
 		lastDrawnTiles.clear()
 		drawIter++
 
+		// start loading some center tiles first, sometimes useful on slow connections
+		if (shouldLoad)
+			for (let i = (iCount / 3) | 0; i < (iCount * 2) / 3; i++)
+				for (let j = (jCount / 3) | 0; j < (jCount * 2) / 3; j++) {
+					findTile(map, iFrom + i, jFrom + j, level, true)
+				}
+
 		for (let i = 0; i < iCount; i++)
 			for (let j = 0; j < jCount; j++) {
-				const dx = xShift + i * tileW * scale
-				const dy = yShift + j * tileW * scale
-				drawOneTile(map, dx, dy, scale, iFrom + i, jFrom + j, level, shouldLoad)
+				const x = xShift + i * tileW * scale
+				const y = yShift + j * tileW * scale
+				drawOneTile(map, x, y, scale, iFrom + i, jFrom + j, level, shouldLoad)
 			}
 
 		const cacheMaxSize = 10 * Math.max(10, (iCount * jCount * scale * scale) | 0)
