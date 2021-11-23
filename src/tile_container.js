@@ -24,7 +24,7 @@ export function TileContainer(tileW, pathFunc) {
 	const cache = /** @type {Map<string,Tile>} */ (new Map())
 
 	let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
-	const lastDrawnUnderLevelPlus2TilesArr = /**@type {Tile[]}*/ ([])
+	const lastDrawnUnderLevelTilesArr = /**@type {Tile[]}*/ ([])
 
 	let drawIter = 0
 
@@ -230,6 +230,7 @@ export function TileContainer(tileW, pathFunc) {
 				}
 			}
 
+			let lowerTilesDrawn = false
 			if (!upperTileDrawn) {
 				drawTilePlaceholder(map, x, y, scale)
 				if (canFillByQuaters) {
@@ -237,14 +238,16 @@ export function TileContainer(tileW, pathFunc) {
 					for (let di = 0; di <= 1; di++)
 						for (let dj = 0; dj <= 1; dj++)
 							tryDrawTile(map, x, y, scale, i, j, level, i*2+di, j*2+dj, level+1, false, false) //prettier-ignore
+					lowerTilesDrawn = true
 				}
 			}
 
 			// drawing additional (to 2x2) lower tiles from previous frames, useful for fast zoom-out animation.
-			// skipping layer+1 since it is handled by upper 2x2
-			for (let k = 0; k < lastDrawnUnderLevelPlus2TilesArr.length; k++) {
-				const tile = lastDrawnUnderLevelPlus2TilesArr[k]
-				tryDrawTileObj(map, tile, x, y, scale, i, j, level, true)
+			for (let k = 0; k < lastDrawnUnderLevelTilesArr.length; k++) {
+				const tile = lastDrawnUnderLevelTilesArr[k]
+				// skipping layer+1 if it was handled by upper 2x2
+				if (!lowerTilesDrawn || tile.z >= level + 2)
+					tryDrawTileObj(map, tile, x, y, scale, i, j, level, true)
 			}
 		}
 
@@ -279,8 +282,17 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {boolean} shouldLoad
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
-		lastDrawnUnderLevelPlus2TilesArr.length = 0
-		lastDrawnTiles.forEach(x => x.z >= level + 2 && lastDrawnUnderLevelPlus2TilesArr.push(x))
+		// fractional view size in tiles
+		const tileViewSize = Math.max(10, iCount * jCount * scale * scale)
+
+		// refilling recent tiles array
+		lastDrawnUnderLevelTilesArr.length = 0
+		lastDrawnTiles.forEach(
+			x =>
+				x.z >= level + 1 &&
+				lastDrawnUnderLevelTilesArr.length < tileViewSize * 2 && //limiting max lower tile count, just in case
+				lastDrawnUnderLevelTilesArr.push(x),
+		)
 		lastDrawnTiles.clear()
 		drawIter++
 
@@ -291,6 +303,7 @@ export function TileContainer(tileW, pathFunc) {
 					findTile(map, iFrom + i, jFrom + j, level, true)
 				}
 
+		// drawing tiles
 		for (let i = 0; i < iCount; i++)
 			for (let j = 0; j < jCount; j++) {
 				const x = xShift + i * tileW * scale
@@ -298,9 +311,10 @@ export function TileContainer(tileW, pathFunc) {
 				drawOneTile(map, x, y, scale, iFrom + i, jFrom + j, level, shouldLoad)
 			}
 
-		const cacheMaxSize = 10 * Math.max(10, (iCount * jCount * scale * scale) | 0)
+		// limiting cache size
+		const cacheMaxSize = (10 * tileViewSize) | 0
 		for (let attempt = 0; attempt < 4 && cache.size > cacheMaxSize; attempt++) {
-			let oldestIter = Infinity
+			let oldestIter = drawIter - 1 //must not affect recently drawn tiles
 			cache.forEach(tile => (oldestIter = Math.min(oldestIter, tile.lastDrawIter)))
 			cache.forEach((tile, key) => {
 				if (tile.lastDrawIter === oldestIter) {
@@ -317,6 +331,6 @@ export function TileContainer(tileW, pathFunc) {
 		cache.forEach(x => (x.img.src = ''))
 		cache.clear()
 		lastDrawnTiles.clear()
-		lastDrawnUnderLevelPlus2TilesArr.length = 0
+		lastDrawnUnderLevelTilesArr.length = 0
 	}
 }
