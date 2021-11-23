@@ -2,15 +2,42 @@
  * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
-export function ControlLayer(opts?: {
+export function MouseControlLayer(opts?: {
     doNotInterfere?: boolean | undefined;
 } | undefined): void;
-export class ControlLayer {
+export class MouseControlLayer {
     /**
      * @class
      * @param {{doNotInterfere?:boolean}} [opts]
      */
     constructor(opts?: {
+        doNotInterfere?: boolean | undefined;
+    } | undefined);
+    /** @param {import('./map').LocMap} map */
+    register: (map: import('./map').LocMap) => void;
+    /** @param {import('./map').LocMap} map */
+    unregister: (map: import('./map').LocMap) => void;
+}
+export function KeyboardControlLayer(): void;
+export class KeyboardControlLayer {
+    /** @param {import('./map').LocMap} map */
+    register: (map: import('./map').LocMap) => void;
+    /** @param {import('./map').LocMap} map */
+    unregister: (map: import('./map').LocMap) => void;
+}
+/**
+ * @class
+ * @param {{doNotInterfere?:boolean}} [mouseOpts]
+ */
+export function ControlLayer(mouseOpts?: {
+    doNotInterfere?: boolean | undefined;
+} | undefined): void;
+export class ControlLayer {
+    /**
+     * @class
+     * @param {{doNotInterfere?:boolean}} [mouseOpts]
+     */
+    constructor(mouseOpts?: {
         doNotInterfere?: boolean | undefined;
     } | undefined);
     /** @param {import('./map').LocMap} map */

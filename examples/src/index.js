@@ -13,12 +13,30 @@ import {
 } from '../../src'
 
 document.documentElement.style.height = '100%'
-document.body.style.position = 'relative'
-document.body.style.width = '100%'
-document.body.style.height = '100%'
 document.body.style.margin = '0'
 
-const map = new LocMap(document.body, ProjectionMercator)
+const mapWrap = document.createElement('div')
+mapWrap.style.position = 'relative'
+mapWrap.style.left = '0'
+mapWrap.style.top = '0'
+mapWrap.style.width = '100%'
+mapWrap.style.height = '100vh'
+document.body.appendChild(mapWrap)
+
+const footer = document.createElement('div')
+footer.style.position = 'relative'
+footer.style.left = '0'
+footer.style.top = '0'
+footer.style.height = '50vh'
+footer.style.display = 'flex'
+footer.style.alignItems = 'center'
+footer.style.justifyContent = 'center'
+footer.style.backgroundColor = 'lightgray'
+footer.style.fontSize = '32px'
+footer.textContent = 'More content'
+document.body.appendChild(footer)
+
+const map = new LocMap(mapWrap, ProjectionMercator)
 const tileContainer = new TileContainer(
 	256,
 	(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
@@ -32,6 +50,7 @@ map.register(new URLLayer())
 map.resize()
 const credit = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 appendCredit(map.getWrap(), credit)
+map.getWrap().focus()
 window.onresize = map.resize
 
 const uiWrap = document.createElement('div')
@@ -46,7 +65,7 @@ uiWrap.innerHTML = `
 	do not interfere with regular page interaction<br>
 	<span style="color:gray">(require ${controlHintKeyName()} for wheel-zoom and two fingers for touch-drag)</span>
 </label>`
-document.body.appendChild(uiWrap)
+mapWrap.appendChild(uiWrap)
 
 const $ = selector => uiWrap.querySelector(selector)
 $('.ctrl-checkbox').onchange = function () {

@@ -50,7 +50,7 @@ export const DBL_CLICK_MAX_DELAY = 500
  * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
-export function ControlLayer(opts) {
+export function MouseControlLayer(opts) {
 	const { doNotInterfere } = opts || {}
 	/** @type {{off():unknown}} */
 	let control
@@ -168,6 +168,7 @@ export function ControlLayer(opts) {
 	const makeControl = map =>
 		controlDouble({
 			singleDown(e, id, x, y, isSwitching) {
+				map.getWrap().focus()
 				setCorrectedSinglePos(x, y, e.timeStamp)
 				if (isSwitching) moveRecordedMousePos()
 				if (!isSwitching) {
@@ -265,7 +266,7 @@ export function ControlLayer(opts) {
 			singleHover(e, x, y) {
 				map.emit('singleHover', { x, y })
 			},
-		}).on({ startElem: map.getCanvas() })
+		}).on({ startElem: map.getWrap() })
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
@@ -275,6 +276,73 @@ export function ControlLayer(opts) {
 	/** @param {import('./map').LocMap} map */
 	this.unregister = map => {
 		control.off()
+	}
+}
+
+export function KeyboardControlLayer() {
+	/** @type {(e:KeyboardEvent) => unknown} */
+	let handler
+
+	/** @param {import('./map').LocMap} map */
+	const makeHandler = map => (/**@type {KeyboardEvent}*/ e) => {
+		if (e.ctrlKey || e.altKey) return
+
+		let shouldPrevent = true
+		const { key, shiftKey } = e
+		const { width, height } = map.getCanvas()
+		const moveDelta = 50 * (shiftKey ? 3 : 1)
+		const zoomDelta = 2 * (shiftKey ? 2 : 1)
+
+		if (key === 'ArrowUp') {
+			map.move(0, moveDelta)
+		} else if (key === 'ArrowDown') {
+			map.move(0, -moveDelta)
+		} else if (key === 'ArrowLeft') {
+			map.move(moveDelta, 0)
+		} else if (key === 'ArrowRight') {
+			map.move(-moveDelta, 0)
+		} else if (key === '=' || key === '+') {
+			map.zoomSmooth(width / 2, height / 2, zoomDelta)
+		} else if (key === '-' || key === '_') {
+			map.zoomSmooth(width / 2, height / 2, 1 / zoomDelta)
+		} else {
+			shouldPrevent = false
+		}
+
+		if (shouldPrevent) e.preventDefault()
+	}
+
+	/** @param {import('./map').LocMap} map */
+	this.register = map => {
+		const wrap = map.getWrap()
+		wrap.tabIndex = 0
+		handler = makeHandler(map)
+		wrap.addEventListener('keydown', handler)
+	}
+
+	/** @param {import('./map').LocMap} map */
+	this.unregister = map => {
+		const wrap = map.getWrap()
+		wrap.tabIndex = -1
+		wrap.removeEventListener('keydown', handler)
+	}
+}
+
+/**
+ * @class
+ * @param {{doNotInterfere?:boolean}} [mouseOpts]
+ */
+export function ControlLayer(mouseOpts) {
+	const items = [new MouseControlLayer(mouseOpts), new KeyboardControlLayer()]
+
+	/** @param {import('./map').LocMap} map */
+	this.register = map => {
+		for (const item of items) item.register(map)
+	}
+
+	/** @param {import('./map').LocMap} map */
+	this.unregister = map => {
+		for (const item of items) item.unregister(map)
 	}
 }
 
@@ -299,7 +367,7 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 		transition: 'opacity 0.25s ease',
 		opacity: '0',
 		pointerEvents: 'none',
-		fontSize: '200%',
+		fontSize: '42px',
 	}
 	if (opts && opts.styles) Object.assign(styles, opts.styles)
 	for (const name in styles) elem.style[name] = styles[name]
