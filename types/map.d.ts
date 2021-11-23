@@ -115,8 +115,9 @@ export class LocMap {
      * @param {number} x
      * @param {number} y
      * @param {number} d
+     * @param {number} stamp
      */
-    zoomSmooth: (x: number, y: number, d: number) => void;
+    zoomSmooth: (x: number, y: number, d: number, stamp: number) => void;
     /**
      * @param {number} dx
      * @param {number} dy

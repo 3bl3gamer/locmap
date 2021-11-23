@@ -257,13 +257,14 @@ export function LocMap(wrap, conv) {
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} d
+	 * @param {number} stamp
 	 */
-	this.zoomSmooth = (x, y, d) => {
+	this.zoomSmooth = (x, y, d, stamp) => {
 		zoomSmoothDelta = Math.max(minZoom / zoom, zoomSmoothDelta * d)
 		zoomInertiaDelta = 1
 		zoomInertiaX = x
 		zoomInertiaY = y
-		zoomInertiaPrevStamp = performance.now()
+		zoomInertiaPrevStamp = stamp
 		smoothIfNecessary()
 	}
 

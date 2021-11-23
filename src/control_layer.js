@@ -164,10 +164,19 @@ export function MouseControlLayer(opts) {
 		)
 	}
 
+	/**
+	 * @param {MouseEvent|TouchEvent} e
+	 * @param {'mouse'|number} id
+	 */
+	function shouldShowTwoFingersHint(e, id) {
+		return doNotInterfere && id !== 'mouse' && e.timeStamp - lastDoubleTouch_stamp > 1000
+	}
+
 	/** @param {import('./map').LocMap} map */
 	const makeControl = map =>
 		controlDouble({
 			singleDown(e, id, x, y, isSwitching) {
+				if (shouldShowTwoFingersHint(e, id)) return false
 				map.getWrap().focus()
 				setCorrectedSinglePos(x, y, e.timeStamp)
 				if (isSwitching) moveRecordedMousePos()
@@ -182,18 +191,17 @@ export function MouseControlLayer(opts) {
 				return true
 			},
 			singleMove(e, id, x, y) {
-				const isMouse = id === 'mouse'
-				if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
+				if (shouldShowTwoFingersHint(e, id)) {
 					map.emit('controlHint', { type: 'use_two_fingers' })
-				} else {
-					const oldX = mouseX
-					const oldY = mouseY
-					setCorrectedSinglePos(x, y, e.timeStamp)
-					moveDistance += point_distance(oldX, oldY, mouseX, mouseY)
-					map.move(mouseX - oldX, mouseY - oldY)
-					recordMousePos(e.timeStamp)
-					map.emit('singleMove', { x, y, id })
+					return false
 				}
+				const oldX = mouseX
+				const oldY = mouseY
+				setCorrectedSinglePos(x, y, e.timeStamp)
+				moveDistance += point_distance(oldX, oldY, mouseX, mouseY)
+				map.move(mouseX - oldX, mouseY - oldY)
+				recordMousePos(e.timeStamp)
+				map.emit('singleMove', { x, y, id })
 				return true
 			},
 			singleUp(e, id, isSwitching) {
@@ -202,13 +210,13 @@ export function MouseControlLayer(opts) {
 				if (moveDistance < 5 && !isSwitching) {
 					const stamp = e.timeStamp
 					if (lastDoubleTouchParams) {
-						map.zoomSmooth(mouseX, mouseY, 0.5)
+						map.zoomSmooth(mouseX, mouseY, 0.5, stamp)
 						const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams
 						map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 })
 					} else {
 						const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY
 						lastSingleClickAt = stamp
-						if (isDbl) map.zoomSmooth(mouseX, mouseY, 2)
+						if (isDbl) map.zoomSmooth(mouseX, mouseY, 2, stamp)
 						map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id })
 					}
 				}
@@ -256,7 +264,7 @@ export function MouseControlLayer(opts) {
 			},
 			wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
 				if (!doNotInterfere || e.ctrlKey || e.metaKey) {
-					map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240))
+					map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240), e.timeStamp)
 					return true
 				} else {
 					map.emit('controlHint', { type: 'use_control_to_zoom' })
@@ -266,7 +274,10 @@ export function MouseControlLayer(opts) {
 			singleHover(e, x, y) {
 				map.emit('singleHover', { x, y })
 			},
-		}).on({ startElem: map.getWrap() })
+		}).on({
+			// not map.getWrap(): so this layer will not prevent events from reaching other layers
+			startElem: map.getCanvas(),
+		})
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
@@ -288,7 +299,7 @@ export function KeyboardControlLayer() {
 		if (e.ctrlKey || e.altKey) return
 
 		let shouldPrevent = true
-		const { key, shiftKey } = e
+		const { key, shiftKey, timeStamp } = e
 		const { width, height } = map.getCanvas()
 		const moveDelta = 50 * (shiftKey ? 3 : 1)
 		const zoomDelta = 2 * (shiftKey ? 2 : 1)
@@ -302,9 +313,9 @@ export function KeyboardControlLayer() {
 		} else if (key === 'ArrowRight') {
 			map.move(-moveDelta, 0)
 		} else if (key === '=' || key === '+') {
-			map.zoomSmooth(width / 2, height / 2, zoomDelta)
+			map.zoomSmooth(width / 2, height / 2, zoomDelta, timeStamp)
 		} else if (key === '-' || key === '_') {
-			map.zoomSmooth(width / 2, height / 2, 1 / zoomDelta)
+			map.zoomSmooth(width / 2, height / 2, 1 / zoomDelta, timeStamp)
 		} else {
 			shouldPrevent = false
 		}
@@ -362,6 +373,7 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 		display: 'flex',
 		alignItems: 'center',
 		justifyContent: 'center',
+		textAlign: 'center',
 		color: 'rgba(0,0,0,0.7)',
 		backgroundColor: 'rgba(127,127,127,0.7)',
 		transition: 'opacity 0.25s ease',
