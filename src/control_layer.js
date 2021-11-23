@@ -290,9 +290,18 @@ export function MouseControlLayer(opts) {
 	}
 }
 
-export function KeyboardControlLayer() {
+/**
+ * @class
+ * @param {object} [opts]
+ * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
+ *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
+ *   drops significantly after changing parent `tabIndex` attribute.
+ */
+export function KeyboardControlLayer(opts) {
+	const { outlineFix = 'none' } = opts || {}
 	/** @type {(e:KeyboardEvent) => unknown} */
 	let handler
+	let oldTabIndex = -1
 
 	/** @param {import('./map').LocMap} map */
 	const makeHandler = map => (/**@type {KeyboardEvent}*/ e) => {
@@ -326,7 +335,9 @@ export function KeyboardControlLayer() {
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
 		const wrap = map.getWrap()
-		wrap.tabIndex = 0
+		oldTabIndex = wrap.tabIndex
+		wrap.tabIndex = 1
+		if (outlineFix !== null) wrap.style.outline = outlineFix
 		handler = makeHandler(map)
 		wrap.addEventListener('keydown', handler)
 	}
@@ -334,17 +345,18 @@ export function KeyboardControlLayer() {
 	/** @param {import('./map').LocMap} map */
 	this.unregister = map => {
 		const wrap = map.getWrap()
-		wrap.tabIndex = -1
+		wrap.tabIndex = oldTabIndex
 		wrap.removeEventListener('keydown', handler)
 	}
 }
 
 /**
  * @class
- * @param {{doNotInterfere?:boolean}} [mouseOpts]
+ * @param {Parameters<typeof MouseControlLayer>[0]} [mouseOpts]
+ * @param {Parameters<typeof KeyboardControlLayer>[0]} [kbdOpts]
  */
-export function ControlLayer(mouseOpts) {
-	const items = [new MouseControlLayer(mouseOpts), new KeyboardControlLayer()]
+export function ControlLayer(mouseOpts, kbdOpts) {
+	const items = [new MouseControlLayer(mouseOpts), new KeyboardControlLayer(kbdOpts)]
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {

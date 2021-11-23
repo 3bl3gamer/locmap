@@ -18,8 +18,27 @@ export class MouseControlLayer {
     /** @param {import('./map').LocMap} map */
     unregister: (map: import('./map').LocMap) => void;
 }
-export function KeyboardControlLayer(): void;
+/**
+ * @class
+ * @param {object} [opts]
+ * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
+ *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
+ *   significantly drops after changing parent `tabIndex` attribute.
+ */
+export function KeyboardControlLayer(opts?: {
+    outlineFix?: string | null | undefined;
+} | undefined): void;
 export class KeyboardControlLayer {
+    /**
+     * @class
+     * @param {object} [opts]
+     * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
+     *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
+     *   significantly drops after changing parent `tabIndex` attribute.
+     */
+    constructor(opts?: {
+        outlineFix?: string | null | undefined;
+    } | undefined);
     /** @param {import('./map').LocMap} map */
     register: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
@@ -27,19 +46,17 @@ export class KeyboardControlLayer {
 }
 /**
  * @class
- * @param {{doNotInterfere?:boolean}} [mouseOpts]
+ * @param {Parameters<typeof MouseControlLayer>[0]} [mouseOpts]
+ * @param {Parameters<typeof KeyboardControlLayer>[0]} [kbdOpts]
  */
-export function ControlLayer(mouseOpts?: {
-    doNotInterfere?: boolean | undefined;
-} | undefined): void;
+export function ControlLayer(mouseOpts?: Parameters<typeof MouseControlLayer>[0], kbdOpts?: Parameters<typeof KeyboardControlLayer>[0]): void;
 export class ControlLayer {
     /**
      * @class
-     * @param {{doNotInterfere?:boolean}} [mouseOpts]
+     * @param {Parameters<typeof MouseControlLayer>[0]} [mouseOpts]
+     * @param {Parameters<typeof KeyboardControlLayer>[0]} [kbdOpts]
      */
-    constructor(mouseOpts?: {
-        doNotInterfere?: boolean | undefined;
-    } | undefined);
+    constructor(mouseOpts?: Parameters<typeof MouseControlLayer>[0], kbdOpts?: Parameters<typeof KeyboardControlLayer>[0]);
     /** @param {import('./map').LocMap} map */
     register: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
