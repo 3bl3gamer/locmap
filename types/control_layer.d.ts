@@ -23,7 +23,7 @@ export class MouseControlLayer {
  * @param {object} [opts]
  * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
  *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
- *   significantly drops after changing parent `tabIndex` attribute.
+ *   drops significantly after changing parent `tabIndex` attribute.
  */
 export function KeyboardControlLayer(opts?: {
     outlineFix?: string | null | undefined;
@@ -34,7 +34,7 @@ export class KeyboardControlLayer {
      * @param {object} [opts]
      * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
      *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
-     *   significantly drops after changing parent `tabIndex` attribute.
+     *   drops significantly after changing parent `tabIndex` attribute.
      */
     constructor(opts?: {
         outlineFix?: string | null | undefined;

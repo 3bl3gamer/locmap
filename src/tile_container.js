@@ -26,6 +26,9 @@ export function TileContainer(tileW, pathFunc) {
 	let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
 	const lastDrawnUnderLevelTilesArr = /**@type {Tile[]}*/ ([])
 
+	/** @type {[iFrom:number, jFrom:number, iCount:number, jCount:number, level:number]} */
+	let prevTileRegion = [0, 0, 0, 0, 0]
+
 	let drawIter = 0
 
 	/**
@@ -99,6 +102,13 @@ export function TileContainer(tileW, pathFunc) {
 		return tile.lastDrawIter >= drawIter - 1
 	}
 
+	/** @param {Tile} tile */
+	function tileWasOutsideOnCurLevel(tile) {
+		const [iFrom, jFrom, iCount, jCount, level] = prevTileRegion
+		const { x, y, z } = tile
+		return z === level && (x < iFrom || x >= iFrom + iCount || y < jFrom || y >= jFrom + jCount)
+	}
+
 	/**
 	 * @param {import('./map').LocMap} map
 	 * @param {Tile} tile
@@ -117,7 +127,11 @@ export function TileContainer(tileW, pathFunc) {
 		if (!rc) return
 
 		if (!tileDrawnRecently(tile)) {
-			tile.appearAt = performance.now() - 16 //making it "appear" a bit earlier, so now tile won't be fully transparent
+			// Preventing fade-in animation for loaded tiles which appeared on sides while moving the map.
+			// This works only for tiles on current level but is simplier and is enough for most cases.
+			if (tileWasOutsideOnCurLevel(tile)) tile.appearAt = 0
+			// making it "appear" a bit earlier, so now tile won't be fully transparent
+			else tile.appearAt = performance.now() - 16
 		}
 		tile.lastDrawIter = drawIter
 		lastDrawnTiles.add(tile)
@@ -282,8 +296,8 @@ export function TileContainer(tileW, pathFunc) {
 	 * @param {boolean} shouldLoad
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
-		// fractional view size in tiles
-		const tileViewSize = Math.max(10, iCount * jCount * scale * scale)
+		// view size in tiles
+		const tileViewSize = ((map.getWidth() * map.getHeight()) / tileW / tileW) | 0
 
 		// refilling recent tiles array
 		lastDrawnUnderLevelTilesArr.length = 0
@@ -323,6 +337,8 @@ export function TileContainer(tileW, pathFunc) {
 				}
 			})
 		}
+
+		prevTileRegion = [iFrom, jFrom, iCount, jCount, level]
 	}
 
 	this.getTileWidth = () => tileW
