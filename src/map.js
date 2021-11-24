@@ -157,50 +157,73 @@ export function LocMap(wrap, conv) {
 		rc.scale(1 / devicePixelRatio, 1 / devicePixelRatio)
 	}
 
+	const ZOOM_ANIM_MODE_SMOOTH = 0
+	const ZOOM_ANIM_MODE_INERTIA = 1
+	const zoomAnimationMinSpeed = 0.0001 //zoom_change/ms
 	const zoomInertiaDeceleration = 0.993
-	const zoomInertiaMinSpeed = 0.0001 //zoom_change/ms
-	let zoomInertiaPrevStamp = 0
-	let zoomInertiaDelta = 1
-	let zoomInertiaX = 0
-	let zoomInertiaY = 0
 	const zoomSmoothDeceleration = 0.983
-	let zoomSmoothDelta = 1
+	let zoomAnimationMode = /**@type {0|1}*/ (ZOOM_ANIM_MODE_SMOOTH)
+	let zoomAnimationPrevStamp = 0
+	let zoomAnimationX = 0
+	let zoomAnimationY = 0
+	let zoomAnimationDelta = 1
 
+	const MOVE_ANIM_MODE_SMOOTH = 0
+	const MOVE_ANIM_MODE_INERTIA = 1
 	const moveInertiaDeceleration = 0.993 //relative speed decrease per 1ms
-	const moveInertiaMinSpeed = 0.01 //pixels/ms
-	let moveInertiaPrevStamp = 0
-	let moveInertiaX = 0
-	let moveInertiaY = 0
+	const moveSmoothDeceleration = 0.985
+	const moveAnimationMinSpeed = 0.01 //pixels/ms
+	let moveAnimationMode = /**@type {0|1}*/ (MOVE_ANIM_MODE_SMOOTH)
+	let moveAnimationPrevStamp = 0
+	let moveAnimationX = 0
+	let moveAnimationY = 0
 
 	const smoothIfNecessary = () => {
 		const now = performance.now()
 
-		if (
-			Math.abs(zoomSmoothDelta - 1) > zoomInertiaMinSpeed ||
-			Math.abs(zoomInertiaDelta - 1) > zoomInertiaMinSpeed
-		) {
-			const elapsed = now - zoomInertiaPrevStamp
+		if (Math.abs(zoomAnimationDelta - 1) > zoomAnimationMinSpeed) {
+			const elapsed = now - zoomAnimationPrevStamp
 
-			const smoothK = Math.pow(zoomSmoothDeceleration, elapsed)
-			let newSmoothDelta = 1 + (zoomSmoothDelta - 1) * smoothK
-			if (Math.abs(newSmoothDelta - 1) <= zoomInertiaMinSpeed) newSmoothDelta = 1
+			let dz
+			if (zoomAnimationMode === ZOOM_ANIM_MODE_INERTIA) {
+				dz = zoomAnimationDelta ** elapsed
+				const inertiaK = zoomInertiaDeceleration ** elapsed
+				zoomAnimationDelta = 1 + (zoomAnimationDelta - 1) * inertiaK
+			} else {
+				const smoothK = zoomSmoothDeceleration ** elapsed
+				let newSmoothDelta = 1 + (zoomAnimationDelta - 1) * smoothK
+				if (Math.abs(newSmoothDelta - 1) <= zoomAnimationMinSpeed) newSmoothDelta = 1
+				dz = zoomAnimationDelta / newSmoothDelta
+				zoomAnimationDelta = newSmoothDelta
+			}
 
-			const dz = Math.pow(zoomInertiaDelta, elapsed) * (zoomSmoothDelta / newSmoothDelta)
-			this.zoom(zoomInertiaX, zoomInertiaY, dz)
-
-			const inertiaK = Math.pow(zoomInertiaDeceleration, elapsed)
-			zoomInertiaDelta = 1 + (zoomInertiaDelta - 1) * inertiaK
-			zoomSmoothDelta = newSmoothDelta
-			zoomInertiaPrevStamp = now
+			this.zoom(zoomAnimationX, zoomAnimationY, dz)
+			zoomAnimationPrevStamp = now
 		}
 
-		if (Math.abs(moveInertiaX) > moveInertiaMinSpeed || Math.abs(moveInertiaY) > moveInertiaMinSpeed) {
-			const elapsed = now - moveInertiaPrevStamp
-			this.move(moveInertiaX * elapsed, moveInertiaY * elapsed)
-			const k = Math.pow(moveInertiaDeceleration, elapsed)
-			moveInertiaX *= k
-			moveInertiaY *= k
-			moveInertiaPrevStamp = now
+		if (moveAnimationX ** 2 + moveAnimationY ** 2 > moveAnimationMinSpeed ** 2) {
+			const elapsed = now - moveAnimationPrevStamp
+
+			let dx, dy
+			if (moveAnimationMode === MOVE_ANIM_MODE_INERTIA) {
+				dx = moveAnimationX * elapsed
+				dy = moveAnimationY * elapsed
+				const k = moveInertiaDeceleration ** elapsed
+				moveAnimationX *= k
+				moveAnimationY *= k
+			} else {
+				let k = moveSmoothDeceleration ** elapsed
+				let newX = moveAnimationX * k
+				let newY = moveAnimationY * k
+				if (newX ** 2 + newY ** 2 < moveAnimationMinSpeed ** 2) k = 0
+				dx = moveAnimationX * (1 - k)
+				dy = moveAnimationY * (1 - k)
+				moveAnimationX *= k
+				moveAnimationY *= k
+			}
+
+			this.move(dx, dy)
+			moveAnimationPrevStamp = now
 		}
 	}
 
@@ -260,11 +283,12 @@ export function LocMap(wrap, conv) {
 	 * @param {number} stamp
 	 */
 	this.zoomSmooth = (x, y, d, stamp) => {
-		zoomSmoothDelta = Math.max(minZoom / zoom, zoomSmoothDelta * d)
-		zoomInertiaDelta = 1
-		zoomInertiaX = x
-		zoomInertiaY = y
-		zoomInertiaPrevStamp = stamp
+		if (zoomAnimationMode !== ZOOM_ANIM_MODE_SMOOTH) zoomAnimationDelta = 1
+		zoomAnimationDelta = Math.max(minZoom / zoom, zoomAnimationDelta * d)
+		zoomAnimationX = x
+		zoomAnimationY = y
+		zoomAnimationPrevStamp = stamp
+		zoomAnimationMode = ZOOM_ANIM_MODE_SMOOTH
 		smoothIfNecessary()
 	}
 
@@ -287,10 +311,25 @@ export function LocMap(wrap, conv) {
 	 * @param {number} dy
 	 * @param {number} stamp
 	 */
+	this.moveSmooth = (dx, dy, stamp) => {
+		if (moveAnimationMode !== MOVE_ANIM_MODE_SMOOTH) moveAnimationX = moveAnimationY = 0
+		moveAnimationX += dx
+		moveAnimationY += dy
+		moveAnimationPrevStamp = stamp
+		moveAnimationMode = MOVE_ANIM_MODE_SMOOTH
+		smoothIfNecessary()
+	}
+
+	/**
+	 * @param {number} dx
+	 * @param {number} dy
+	 * @param {number} stamp
+	 */
 	this.applyMoveInertia = (dx, dy, stamp) => {
-		moveInertiaX = dx
-		moveInertiaY = dy
-		moveInertiaPrevStamp = stamp
+		moveAnimationX = dx
+		moveAnimationY = dy
+		moveAnimationPrevStamp = stamp
+		moveAnimationMode = MOVE_ANIM_MODE_INERTIA
 		requestAnimationFrame(smoothIfNecessary)
 	}
 	/**
@@ -300,11 +339,11 @@ export function LocMap(wrap, conv) {
 	 * @param {number} stamp
 	 */
 	this.applyZoomInertia = (x, y, dz, stamp) => {
-		zoomInertiaDelta = dz
-		zoomSmoothDelta = 1
-		zoomInertiaX = x
-		zoomInertiaY = y
-		zoomInertiaPrevStamp = stamp
+		zoomAnimationDelta = dz
+		zoomAnimationX = x
+		zoomAnimationY = y
+		zoomAnimationPrevStamp = stamp
+		zoomAnimationMode = ZOOM_ANIM_MODE_INERTIA
 		requestAnimationFrame(smoothIfNecessary)
 	}
 

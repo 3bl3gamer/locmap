@@ -128,6 +128,12 @@ export class LocMap {
      * @param {number} dy
      * @param {number} stamp
      */
+    moveSmooth: (dx: number, dy: number, stamp: number) => void;
+    /**
+     * @param {number} dx
+     * @param {number} dy
+     * @param {number} stamp
+     */
     applyMoveInertia: (dx: number, dy: number, stamp: number) => void;
     /**
      * @param {number} x

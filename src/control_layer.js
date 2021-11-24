@@ -310,17 +310,17 @@ export function KeyboardControlLayer(opts) {
 		let shouldPrevent = true
 		const { key, shiftKey, timeStamp } = e
 		const { width, height } = map.getCanvas()
-		const moveDelta = 50 * (shiftKey ? 3 : 1)
+		const moveDelta = 75 * (shiftKey ? 3 : 1)
 		const zoomDelta = 2 * (shiftKey ? 2 : 1)
 
 		if (key === 'ArrowUp') {
-			map.move(0, moveDelta)
+			map.moveSmooth(0, moveDelta, timeStamp)
 		} else if (key === 'ArrowDown') {
-			map.move(0, -moveDelta)
+			map.moveSmooth(0, -moveDelta, timeStamp)
 		} else if (key === 'ArrowLeft') {
-			map.move(moveDelta, 0)
+			map.moveSmooth(moveDelta, 0, timeStamp)
 		} else if (key === 'ArrowRight') {
-			map.move(-moveDelta, 0)
+			map.moveSmooth(-moveDelta, 0, timeStamp)
 		} else if (key === '=' || key === '+') {
 			map.zoomSmooth(width / 2, height / 2, zoomDelta, timeStamp)
 		} else if (key === '-' || key === '_') {
