@@ -160,50 +160,73 @@
 			rc.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
 		};
 
+		const ZOOM_ANIM_MODE_SMOOTH = 0;
+		const ZOOM_ANIM_MODE_INERTIA = 1;
+		const zoomAnimationMinSpeed = 0.0001; //zoom_change/ms
 		const zoomInertiaDeceleration = 0.993;
-		const zoomInertiaMinSpeed = 0.0001; //zoom_change/ms
-		let zoomInertiaPrevStamp = 0;
-		let zoomInertiaDelta = 1;
-		let zoomInertiaX = 0;
-		let zoomInertiaY = 0;
 		const zoomSmoothDeceleration = 0.983;
-		let zoomSmoothDelta = 1;
+		let zoomAnimationMode = /**@type {0|1}*/ (ZOOM_ANIM_MODE_SMOOTH);
+		let zoomAnimationPrevStamp = 0;
+		let zoomAnimationX = 0;
+		let zoomAnimationY = 0;
+		let zoomAnimationDelta = 1;
 
+		const MOVE_ANIM_MODE_SMOOTH = 0;
+		const MOVE_ANIM_MODE_INERTIA = 1;
 		const moveInertiaDeceleration = 0.993; //relative speed decrease per 1ms
-		const moveInertiaMinSpeed = 0.01; //pixels/ms
-		let moveInertiaPrevStamp = 0;
-		let moveInertiaX = 0;
-		let moveInertiaY = 0;
+		const moveSmoothDeceleration = 0.985;
+		const moveAnimationMinSpeed = 0.01; //pixels/ms
+		let moveAnimationMode = /**@type {0|1}*/ (MOVE_ANIM_MODE_SMOOTH);
+		let moveAnimationPrevStamp = 0;
+		let moveAnimationX = 0;
+		let moveAnimationY = 0;
 
 		const smoothIfNecessary = () => {
 			const now = performance.now();
 
-			if (
-				Math.abs(zoomSmoothDelta - 1) > zoomInertiaMinSpeed ||
-				Math.abs(zoomInertiaDelta - 1) > zoomInertiaMinSpeed
-			) {
-				const elapsed = now - zoomInertiaPrevStamp;
+			if (Math.abs(zoomAnimationDelta - 1) > zoomAnimationMinSpeed) {
+				const elapsed = now - zoomAnimationPrevStamp;
 
-				const smoothK = Math.pow(zoomSmoothDeceleration, elapsed);
-				let newSmoothDelta = 1 + (zoomSmoothDelta - 1) * smoothK;
-				if (Math.abs(newSmoothDelta - 1) <= zoomInertiaMinSpeed) newSmoothDelta = 1;
+				let dz;
+				if (zoomAnimationMode === ZOOM_ANIM_MODE_INERTIA) {
+					dz = zoomAnimationDelta ** elapsed;
+					const inertiaK = zoomInertiaDeceleration ** elapsed;
+					zoomAnimationDelta = 1 + (zoomAnimationDelta - 1) * inertiaK;
+				} else {
+					const smoothK = zoomSmoothDeceleration ** elapsed;
+					let newSmoothDelta = 1 + (zoomAnimationDelta - 1) * smoothK;
+					if (Math.abs(newSmoothDelta - 1) <= zoomAnimationMinSpeed) newSmoothDelta = 1;
+					dz = zoomAnimationDelta / newSmoothDelta;
+					zoomAnimationDelta = newSmoothDelta;
+				}
 
-				const dz = Math.pow(zoomInertiaDelta, elapsed) * (zoomSmoothDelta / newSmoothDelta);
-				this.zoom(zoomInertiaX, zoomInertiaY, dz);
-
-				const inertiaK = Math.pow(zoomInertiaDeceleration, elapsed);
-				zoomInertiaDelta = 1 + (zoomInertiaDelta - 1) * inertiaK;
-				zoomSmoothDelta = newSmoothDelta;
-				zoomInertiaPrevStamp = now;
+				this.zoom(zoomAnimationX, zoomAnimationY, dz);
+				zoomAnimationPrevStamp = now;
 			}
 
-			if (Math.abs(moveInertiaX) > moveInertiaMinSpeed || Math.abs(moveInertiaY) > moveInertiaMinSpeed) {
-				const elapsed = now - moveInertiaPrevStamp;
-				this.move(moveInertiaX * elapsed, moveInertiaY * elapsed);
-				const k = Math.pow(moveInertiaDeceleration, elapsed);
-				moveInertiaX *= k;
-				moveInertiaY *= k;
-				moveInertiaPrevStamp = now;
+			if (moveAnimationX ** 2 + moveAnimationY ** 2 > moveAnimationMinSpeed ** 2) {
+				const elapsed = now - moveAnimationPrevStamp;
+
+				let dx, dy;
+				if (moveAnimationMode === MOVE_ANIM_MODE_INERTIA) {
+					dx = moveAnimationX * elapsed;
+					dy = moveAnimationY * elapsed;
+					const k = moveInertiaDeceleration ** elapsed;
+					moveAnimationX *= k;
+					moveAnimationY *= k;
+				} else {
+					let k = moveSmoothDeceleration ** elapsed;
+					let newX = moveAnimationX * k;
+					let newY = moveAnimationY * k;
+					if (newX ** 2 + newY ** 2 < moveAnimationMinSpeed ** 2) k = 0;
+					dx = moveAnimationX * (1 - k);
+					dy = moveAnimationY * (1 - k);
+					moveAnimationX *= k;
+					moveAnimationY *= k;
+				}
+
+				this.move(dx, dy);
+				moveAnimationPrevStamp = now;
 			}
 		};
 
@@ -260,13 +283,15 @@
 		 * @param {number} x
 		 * @param {number} y
 		 * @param {number} d
+		 * @param {number} stamp
 		 */
-		this.zoomSmooth = (x, y, d) => {
-			zoomSmoothDelta = Math.max(minZoom / zoom, zoomSmoothDelta * d);
-			zoomInertiaDelta = 1;
-			zoomInertiaX = x;
-			zoomInertiaY = y;
-			zoomInertiaPrevStamp = performance.now();
+		this.zoomSmooth = (x, y, d, stamp) => {
+			if (zoomAnimationMode !== ZOOM_ANIM_MODE_SMOOTH) zoomAnimationDelta = 1;
+			zoomAnimationDelta = Math.max(minZoom / zoom, zoomAnimationDelta * d);
+			zoomAnimationX = x;
+			zoomAnimationY = y;
+			zoomAnimationPrevStamp = stamp;
+			zoomAnimationMode = ZOOM_ANIM_MODE_SMOOTH;
 			smoothIfNecessary();
 		};
 
@@ -289,10 +314,25 @@
 		 * @param {number} dy
 		 * @param {number} stamp
 		 */
+		this.moveSmooth = (dx, dy, stamp) => {
+			if (moveAnimationMode !== MOVE_ANIM_MODE_SMOOTH) moveAnimationX = moveAnimationY = 0;
+			moveAnimationX += dx;
+			moveAnimationY += dy;
+			moveAnimationPrevStamp = stamp;
+			moveAnimationMode = MOVE_ANIM_MODE_SMOOTH;
+			smoothIfNecessary();
+		};
+
+		/**
+		 * @param {number} dx
+		 * @param {number} dy
+		 * @param {number} stamp
+		 */
 		this.applyMoveInertia = (dx, dy, stamp) => {
-			moveInertiaX = dx;
-			moveInertiaY = dy;
-			moveInertiaPrevStamp = stamp;
+			moveAnimationX = dx;
+			moveAnimationY = dy;
+			moveAnimationPrevStamp = stamp;
+			moveAnimationMode = MOVE_ANIM_MODE_INERTIA;
 			requestAnimationFrame(smoothIfNecessary);
 		};
 		/**
@@ -302,11 +342,11 @@
 		 * @param {number} stamp
 		 */
 		this.applyZoomInertia = (x, y, dz, stamp) => {
-			zoomInertiaDelta = dz;
-			zoomSmoothDelta = 1;
-			zoomInertiaX = x;
-			zoomInertiaY = y;
-			zoomInertiaPrevStamp = stamp;
+			zoomAnimationDelta = dz;
+			zoomAnimationX = x;
+			zoomAnimationY = y;
+			zoomAnimationPrevStamp = stamp;
+			zoomAnimationMode = ZOOM_ANIM_MODE_INERTIA;
 			requestAnimationFrame(smoothIfNecessary);
 		};
 
@@ -717,7 +757,7 @@
 	 * @class
 	 * @param {{doNotInterfere?:boolean}} [opts]
 	 */
-	function ControlLayer(opts) {
+	function MouseControlLayer(opts) {
 		const { doNotInterfere } = opts || {};
 		/** @type {{off():unknown}} */
 		let control;
@@ -831,10 +871,20 @@
 			)
 		}
 
+		/**
+		 * @param {MouseEvent|TouchEvent} e
+		 * @param {'mouse'|number} id
+		 */
+		function shouldShowTwoFingersHint(e, id) {
+			return doNotInterfere && id !== 'mouse' && e.timeStamp - lastDoubleTouch_stamp > 1000
+		}
+
 		/** @param {import('./map').LocMap} map */
 		const makeControl = map =>
 			controlDouble({
 				singleDown(e, id, x, y, isSwitching) {
+					if (shouldShowTwoFingersHint(e, id)) return false
+					map.getWrap().focus();
 					setCorrectedSinglePos(x, y, e.timeStamp);
 					if (isSwitching) moveRecordedMousePos();
 					if (!isSwitching) {
@@ -848,18 +898,17 @@
 					return true
 				},
 				singleMove(e, id, x, y) {
-					const isMouse = id === 'mouse';
-					if (doNotInterfere && !isMouse && performance.now() - lastDoubleTouch_stamp > 1000) {
+					if (shouldShowTwoFingersHint(e, id)) {
 						map.emit('controlHint', { type: 'use_two_fingers' });
-					} else {
-						const oldX = mouseX;
-						const oldY = mouseY;
-						setCorrectedSinglePos(x, y, e.timeStamp);
-						moveDistance += point_distance(oldX, oldY, mouseX, mouseY);
-						map.move(mouseX - oldX, mouseY - oldY);
-						recordMousePos(e.timeStamp);
-						map.emit('singleMove', { x, y, id });
+						return false
 					}
+					const oldX = mouseX;
+					const oldY = mouseY;
+					setCorrectedSinglePos(x, y, e.timeStamp);
+					moveDistance += point_distance(oldX, oldY, mouseX, mouseY);
+					map.move(mouseX - oldX, mouseY - oldY);
+					recordMousePos(e.timeStamp);
+					map.emit('singleMove', { x, y, id });
 					return true
 				},
 				singleUp(e, id, isSwitching) {
@@ -868,13 +917,13 @@
 					if (moveDistance < 5 && !isSwitching) {
 						const stamp = e.timeStamp;
 						if (lastDoubleTouchParams) {
-							map.zoomSmooth(mouseX, mouseY, 0.5);
+							map.zoomSmooth(mouseX, mouseY, 0.5, stamp);
 							const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams;
 							map.emit('doubleClick', { id0, x0, y0, id1, x1, y1 });
 						} else {
 							const isDbl = lastSingleClickAt > stamp - DBL_CLICK_MAX_DELAY;
 							lastSingleClickAt = stamp;
-							if (isDbl) map.zoomSmooth(mouseX, mouseY, 2);
+							if (isDbl) map.zoomSmooth(mouseX, mouseY, 2, stamp);
 							map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id });
 						}
 					}
@@ -922,7 +971,7 @@
 				},
 				wheelRot(e, deltaX, deltaY, deltaZ, x, y) {
 					if (!doNotInterfere || e.ctrlKey || e.metaKey) {
-						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240));
+						map.zoomSmooth(x, y, Math.pow(2, -deltaY / 240), e.timeStamp);
 						return true
 					} else {
 						map.emit('controlHint', { type: 'use_control_to_zoom' });
@@ -932,7 +981,10 @@
 				singleHover(e, x, y) {
 					map.emit('singleHover', { x, y });
 				},
-			}).on({ startElem: map.getCanvas() });
+			}).on({
+				// not map.getWrap(): so this layer will not prevent events from reaching other layers
+				startElem: map.getCanvas(),
+			});
 
 		/** @param {import('./map').LocMap} map */
 		this.register = map => {
@@ -942,6 +994,85 @@
 		/** @param {import('./map').LocMap} map */
 		this.unregister = map => {
 			control.off();
+		};
+	}
+
+	/**
+	 * @class
+	 * @param {object} [opts]
+	 * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
+	 *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
+	 *   drops significantly after changing parent `tabIndex` attribute.
+	 */
+	function KeyboardControlLayer(opts) {
+		const { outlineFix = 'none' } = opts || {};
+		/** @type {(e:KeyboardEvent) => unknown} */
+		let handler;
+		let oldTabIndex = -1;
+
+		/** @param {import('./map').LocMap} map */
+		const makeHandler = map => (/**@type {KeyboardEvent}*/ e) => {
+			if (e.ctrlKey || e.altKey) return
+
+			let shouldPrevent = true;
+			const { key, shiftKey, timeStamp } = e;
+			const { width, height } = map.getCanvas();
+			const moveDelta = 75 * (shiftKey ? 3 : 1);
+			const zoomDelta = 2 * (shiftKey ? 2 : 1);
+
+			if (key === 'ArrowUp') {
+				map.moveSmooth(0, moveDelta, timeStamp);
+			} else if (key === 'ArrowDown') {
+				map.moveSmooth(0, -moveDelta, timeStamp);
+			} else if (key === 'ArrowLeft') {
+				map.moveSmooth(moveDelta, 0, timeStamp);
+			} else if (key === 'ArrowRight') {
+				map.moveSmooth(-moveDelta, 0, timeStamp);
+			} else if (key === '=' || key === '+') {
+				map.zoomSmooth(width / 2, height / 2, zoomDelta, timeStamp);
+			} else if (key === '-' || key === '_') {
+				map.zoomSmooth(width / 2, height / 2, 1 / zoomDelta, timeStamp);
+			} else {
+				shouldPrevent = false;
+			}
+
+			if (shouldPrevent) e.preventDefault();
+		};
+
+		/** @param {import('./map').LocMap} map */
+		this.register = map => {
+			const wrap = map.getWrap();
+			oldTabIndex = wrap.tabIndex;
+			wrap.tabIndex = 1;
+			if (outlineFix !== null) wrap.style.outline = outlineFix;
+			handler = makeHandler(map);
+			wrap.addEventListener('keydown', handler);
+		};
+
+		/** @param {import('./map').LocMap} map */
+		this.unregister = map => {
+			const wrap = map.getWrap();
+			wrap.tabIndex = oldTabIndex;
+			wrap.removeEventListener('keydown', handler);
+		};
+	}
+
+	/**
+	 * @class
+	 * @param {Parameters<typeof MouseControlLayer>[0]} [mouseOpts]
+	 * @param {Parameters<typeof KeyboardControlLayer>[0]} [kbdOpts]
+	 */
+	function ControlLayer(mouseOpts, kbdOpts) {
+		const items = [new MouseControlLayer(mouseOpts), new KeyboardControlLayer(kbdOpts)];
+
+		/** @param {import('./map').LocMap} map */
+		this.register = map => {
+			for (const item of items) item.register(map);
+		};
+
+		/** @param {import('./map').LocMap} map */
+		this.unregister = map => {
+			for (const item of items) item.unregister(map);
 		};
 	}
 
@@ -961,12 +1092,13 @@
 			display: 'flex',
 			alignItems: 'center',
 			justifyContent: 'center',
+			textAlign: 'center',
 			color: 'rgba(0,0,0,0.7)',
 			backgroundColor: 'rgba(127,127,127,0.7)',
 			transition: 'opacity 0.25s ease',
 			opacity: '0',
 			pointerEvents: 'none',
-			fontSize: '200%',
+			fontSize: '42px',
 		};
 		if (opts && opts.styles) Object.assign(styles, opts.styles);
 		for (const name in styles) elem.style[name] = styles[name];
@@ -1039,7 +1171,10 @@
 		const cache = /** @type {Map<string,Tile>} */ (new Map());
 
 		let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set());
-		const lastDrawnUnderLevelPlus2TilesArr = /**@type {Tile[]}*/ ([]);
+		const lastDrawnUnderLevelTilesArr = /**@type {Tile[]}*/ ([]);
+
+		/** @type {[iFrom:number, jFrom:number, iCount:number, jCount:number, level:number]} */
+		let prevTileRegion = [0, 0, 0, 0, 0];
 
 		let drawIter = 0;
 
@@ -1114,6 +1249,13 @@
 			return tile.lastDrawIter >= drawIter - 1
 		}
 
+		/** @param {Tile} tile */
+		function tileWasOutsideOnCurLevel(tile) {
+			const [iFrom, jFrom, iCount, jCount, level] = prevTileRegion;
+			const { x, y, z } = tile;
+			return z === level && (x < iFrom || x >= iFrom + iCount || y < jFrom || y >= jFrom + jCount)
+		}
+
 		/**
 		 * @param {import('./map').LocMap} map
 		 * @param {Tile} tile
@@ -1132,7 +1274,11 @@
 			if (!rc) return
 
 			if (!tileDrawnRecently(tile)) {
-				tile.appearAt = performance.now() - 16; //making it "appear" a bit earlier, so now tile won't be fully transparent
+				// Preventing fade-in animation for loaded tiles which appeared on sides while moving the map.
+				// This works only for tiles on current level but is simplier and is enough for most cases.
+				if (tileWasOutsideOnCurLevel(tile)) tile.appearAt = 0;
+				// making it "appear" a bit earlier, so now tile won't be fully transparent
+				else tile.appearAt = performance.now() - 16;
 			}
 			tile.lastDrawIter = drawIter;
 			lastDrawnTiles.add(tile);
@@ -1245,6 +1391,7 @@
 					}
 				}
 
+				let lowerTilesDrawn = false;
 				if (!upperTileDrawn) {
 					drawTilePlaceholder(map, x, y, scale);
 					if (canFillByQuaters) {
@@ -1252,14 +1399,16 @@
 						for (let di = 0; di <= 1; di++)
 							for (let dj = 0; dj <= 1; dj++)
 								tryDrawTile(map, x, y, scale, i, j, level, i*2+di, j*2+dj, level+1, false, false); //prettier-ignore
+						lowerTilesDrawn = true;
 					}
 				}
 
 				// drawing additional (to 2x2) lower tiles from previous frames, useful for fast zoom-out animation.
-				// skipping layer+1 since it is handled by upper 2x2
-				for (let k = 0; k < lastDrawnUnderLevelPlus2TilesArr.length; k++) {
-					const tile = lastDrawnUnderLevelPlus2TilesArr[k];
-					tryDrawTileObj(map, tile, x, y, scale, i, j, level, true);
+				for (let k = 0; k < lastDrawnUnderLevelTilesArr.length; k++) {
+					const tile = lastDrawnUnderLevelTilesArr[k];
+					// skipping layer+1 if it was handled by upper 2x2
+					if (!lowerTilesDrawn || tile.z >= level + 2)
+						tryDrawTileObj(map, tile, x, y, scale, i, j, level, true);
 				}
 			}
 
@@ -1294,8 +1443,17 @@
 		 * @param {boolean} shouldLoad
 		 */
 		this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
-			lastDrawnUnderLevelPlus2TilesArr.length = 0;
-			lastDrawnTiles.forEach(x => x.z >= level + 2 && lastDrawnUnderLevelPlus2TilesArr.push(x));
+			// view size in tiles
+			const tileViewSize = ((map.getWidth() * map.getHeight()) / tileW / tileW) | 0;
+
+			// refilling recent tiles array
+			lastDrawnUnderLevelTilesArr.length = 0;
+			lastDrawnTiles.forEach(
+				x =>
+					x.z >= level + 1 &&
+					lastDrawnUnderLevelTilesArr.length < tileViewSize * 2 && //limiting max lower tile count, just in case
+					lastDrawnUnderLevelTilesArr.push(x),
+			);
 			lastDrawnTiles.clear();
 			drawIter++;
 
@@ -1306,6 +1464,7 @@
 						findTile(map, iFrom + i, jFrom + j, level, true);
 					}
 
+			// drawing tiles
 			for (let i = 0; i < iCount; i++)
 				for (let j = 0; j < jCount; j++) {
 					const x = xShift + i * tileW * scale;
@@ -1313,9 +1472,10 @@
 					drawOneTile(map, x, y, scale, iFrom + i, jFrom + j, level, shouldLoad);
 				}
 
-			const cacheMaxSize = 10 * Math.max(10, (iCount * jCount * scale * scale) | 0);
+			// limiting cache size
+			const cacheMaxSize = (10 * tileViewSize) | 0;
 			for (let attempt = 0; attempt < 4 && cache.size > cacheMaxSize; attempt++) {
-				let oldestIter = Infinity;
+				let oldestIter = drawIter - 1; //must not affect recently drawn tiles
 				cache.forEach(tile => (oldestIter = Math.min(oldestIter, tile.lastDrawIter)));
 				cache.forEach((tile, key) => {
 					if (tile.lastDrawIter === oldestIter) {
@@ -1324,6 +1484,8 @@
 					}
 				});
 			}
+
+			prevTileRegion = [iFrom, jFrom, iCount, jCount, level];
 		};
 
 		this.getTileWidth = () => tileW;
@@ -1332,7 +1494,7 @@
 			cache.forEach(x => (x.img.src = ''));
 			cache.clear();
 			lastDrawnTiles.clear();
-			lastDrawnUnderLevelPlus2TilesArr.length = 0;
+			lastDrawnUnderLevelTilesArr.length = 0;
 		};
 	}
 
@@ -1594,12 +1756,30 @@
 	}
 
 	document.documentElement.style.height = '100%';
-	document.body.style.position = 'relative';
-	document.body.style.width = '100%';
-	document.body.style.height = '100%';
 	document.body.style.margin = '0';
 
-	const map = new LocMap(document.body, ProjectionMercator);
+	const mapWrap = document.createElement('div');
+	mapWrap.style.position = 'relative';
+	mapWrap.style.left = '0';
+	mapWrap.style.top = '0';
+	mapWrap.style.width = '100%';
+	mapWrap.style.height = '100vh';
+	document.body.appendChild(mapWrap);
+
+	const footer = document.createElement('div');
+	footer.style.position = 'relative';
+	footer.style.left = '0';
+	footer.style.top = '0';
+	footer.style.height = '50vh';
+	footer.style.display = 'flex';
+	footer.style.alignItems = 'center';
+	footer.style.justifyContent = 'center';
+	footer.style.backgroundColor = 'lightgray';
+	footer.style.fontSize = '32px';
+	footer.textContent = 'More content';
+	document.body.appendChild(footer);
+
+	const map = new LocMap(mapWrap, ProjectionMercator);
 	const tileContainer = new TileContainer(
 		256,
 		(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
@@ -1613,6 +1793,7 @@
 	map.resize();
 	const credit = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 	appendCredit(map.getWrap(), credit);
+	map.getWrap().focus();
 	window.onresize = map.resize;
 
 	const uiWrap = document.createElement('div');
@@ -1627,7 +1808,7 @@
 	do not interfere with regular page interaction<br>
 	<span style="color:gray">(require ${controlHintKeyName()} for wheel-zoom and two fingers for touch-drag)</span>
 </label>`;
-	document.body.appendChild(uiWrap);
+	mapWrap.appendChild(uiWrap);
 
 	const $ = selector => uiWrap.querySelector(selector);
 	$('.ctrl-checkbox').onchange = function () {
@@ -1642,4 +1823,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.c8ce91bf.js.map
+//# sourceMappingURL=bundle.713b37c7.js.map
