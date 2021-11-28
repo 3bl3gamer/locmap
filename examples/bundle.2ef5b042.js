@@ -63,13 +63,13 @@
 		this.getProjConv = () => conv;
 		this.getZoom = () => zoom;
 		/** Map left edge offset from the view left edge (in pixels) */
-		this.getTopLeftXShift = () => xShift - curWidth / 2;
+		this.getViewBoxXShift = () => xShift - curWidth / 2;
 		/** Map top edge offset from the view top edge (in pixels) */
-		this.getTopLeftYShift = () => yShift - curHeight / 2;
+		this.getViewBoxYShift = () => yShift - curHeight / 2;
 		/** Map view width */
-		this.getWidth = () => curWidth;
+		this.getViewBoxWidth = () => curWidth;
 		/** Map view height */
-		this.getHeight = () => curHeight;
+		this.getViewBoxHeight = () => curHeight;
 
 		const canvas = document.createElement('canvas');
 		canvas.className = 'locmap-canvas';
@@ -188,7 +188,8 @@
 		let moveAnimationX = 0;
 		let moveAnimationY = 0;
 
-		const smoothIfNecessary = () => {
+		/** @param {number} frameTime */
+		const smoothIfNecessary = frameTime => {
 			const now = performance.now();
 
 			if (Math.abs(zoomAnimationDelta - 1) > zoomAnimationMinSpeed) {
@@ -244,11 +245,11 @@
 				requestAnimationFrame(onAnimationFrame);
 			}
 		}
-		/** @param {number} timeStamp */
-		function onAnimationFrame(timeStamp) {
+		/** @param {number} frameTime */
+		function onAnimationFrame(frameTime) {
 			animFrameRequested = false;
-			drawLayers();
 			smoothIfNecessary();
+			drawLayers();
 		}
 		/** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
 		this.requestRedraw = requestRedraw;
@@ -357,7 +358,7 @@
 			moveAnimationY = dy;
 			moveAnimationPrevStamp = stamp;
 			moveAnimationMode = MOVE_ANIM_MODE_INERTIA;
-			requestAnimationFrame(smoothIfNecessary);
+			smoothIfNecessary();
 		};
 		/**
 		 * Start zoomin map with a certain speed and a gradual slowdown around `(x,y)` reference point.
@@ -373,7 +374,7 @@
 			zoomAnimationY = y;
 			zoomAnimationPrevStamp = stamp;
 			zoomAnimationMode = ZOOM_ANIM_MODE_INERTIA;
-			requestAnimationFrame(smoothIfNecessary);
+			smoothIfNecessary();
 		};
 
 		//------------
@@ -1486,7 +1487,7 @@
 		 */
 		this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
 			// view size in tiles
-			const tileViewSize = ((map.getWidth() * map.getHeight()) / tileW / tileW) | 0;
+			const tileViewSize = ((map.getViewBoxWidth() * map.getViewBoxHeight()) / tileW / tileW) | 0;
 
 			// refilling recent tiles array
 			lastDrawnUnderLevelTilesArr.length = 0;
@@ -1582,8 +1583,8 @@
 			const tileGridSize = 1 << level;
 			const scale = (map.getZoom() * zoomDifference) / tileGridSize;
 			const blockSize = tileHost.getTileWidth() * scale;
-			const mapXShift = map.getTopLeftXShift();
-			const mapYShift = map.getTopLeftYShift();
+			const mapXShift = map.getViewBoxXShift();
+			const mapYShift = map.getViewBoxYShift();
 
 			let xShift, iFrom;
 			if (mapXShift > 0) {
@@ -1602,8 +1603,14 @@
 				jFrom = 0;
 			}
 
-			const iCount = Math.min(tileGridSize - iFrom, (((map.getWidth() - xShift) / blockSize) | 0) + 1);
-			const jCount = Math.min(tileGridSize - jFrom, (((map.getHeight() - yShift) / blockSize) | 0) + 1);
+			const iCount = Math.min(
+				tileGridSize - iFrom,
+				(((map.getViewBoxWidth() - xShift) / blockSize) | 0) + 1,
+			);
+			const jCount = Math.min(
+				tileGridSize - jFrom,
+				(((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1,
+			);
 
 			tileHost.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles);
 		};
@@ -1727,8 +1734,8 @@
 			const rc = map.get2dContext();
 			if (rc === null) return
 
-			const x = -map.getTopLeftXShift() + map.lon2x(lastLocation.longitude);
-			const y = -map.getTopLeftYShift() + map.lat2y(lastLocation.latitude);
+			const x = -map.getViewBoxXShift() + map.lon2x(lastLocation.longitude);
+			const y = -map.getViewBoxYShift() + map.lat2y(lastLocation.latitude);
 
 			const lineW = 4;
 			const r = Math.max(lineW / 2, lastLocation.accuracy * map.meters2pixCoef(lastLocation.latitude));
@@ -1741,7 +1748,7 @@
 			rc.fill();
 			strokeOutlined(rc, lineW, 'white', lineW / 2, 'black');
 
-			const size = Math.min(map.getWidth(), map.getHeight());
+			const size = Math.min(map.getViewBoxWidth(), map.getViewBoxHeight());
 			const crossSize = size / 50;
 			const innerCrossThresh = size / 4;
 			const outerCrossThresh = size / 100;
@@ -1877,4 +1884,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.3a6bda70.js.map
+//# sourceMappingURL=bundle.2ef5b042.js.map
