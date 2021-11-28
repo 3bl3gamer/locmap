@@ -6,6 +6,7 @@ import { createGzip } from 'zlib'
 import { promisify } from 'util'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
+import * as path from 'path'
 const pipe = promisify(pipeline)
 
 const __filename = fileURLToPath(import.meta.url)
@@ -13,6 +14,11 @@ const __dirname = dirname(__filename)
 const baseDir = `${__dirname}/..`
 const mapSrcDir = `${baseDir}/src`
 
+/**
+ * @template T
+ * @param {(tempDir:string) => T} func
+ * @returns {Promise<T>}
+ */
 async function withTempDir(func) {
 	const tempDir = await fs.mkdtemp(`${baseDir}/tmp_locmap_sizes_`)
 	try {
@@ -52,7 +58,7 @@ export default async function (commandOptions) {
 		await new Promise((resolve, reject) => {
 			const child = spawn(
 				`${baseDir}/node_modules/.bin/rollup`, //
-				['--config', configFPath],
+				['--config', configFPath, '--silent'],
 				{ stdio: 'inherit' },
 			)
 			child.on('exit', (code, signal) => {
@@ -76,7 +82,7 @@ export default async function (commandOptions) {
 	})
 }
 
-;(async () => {
+export async function getSizesTable() {
 	const baseSizes = await getSizes(`
 import { LocMap, TileContainer, TileLayer, ProjectionMercator } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
@@ -105,18 +111,27 @@ map.register(new LocationLayer())
 map.register(new URLLayer())
 appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
 
-	console.log(`${' '.repeat(7)} bundled minfied min+gz`)
-	for (const [name, sizes] of [
+	let text = ''
+	text += `|         | bundled | minfied | min+gz |     |\n`
+	text += `|:--------|--------:|--------:|-------:|:----|\n`
+	for (const [name, sizes] of /**@type {[string, typeof baseSizes][]}*/ ([
 		['base', baseSizes],
 		['regular', regularSizes],
 		['full', fullSizes],
-	]) {
-		console.log(
+	])) {
+		text +=
+			'| ' +
 			name.padEnd(7) +
-				` ${(sizes.orig / 1024).toFixed(1).padStart(6)} ` +
-				` ${(sizes.min / 1024).toFixed(1).padStart(6)} ` +
-				` ${(sizes.minGz / 1024).toFixed(1).padStart(5)} ` +
-				' KiB',
-		)
+			` | ${(sizes.orig / 1024).toFixed(1).padStart(6)} ` +
+			` | ${(sizes.min / 1024).toFixed(1).padStart(6)} ` +
+			` | ${(sizes.minGz / 1024).toFixed(1).padStart(5)} ` +
+			' | KiB |\n'
 	}
-})()
+	return { table: text, sizes: { regular: regularSizes } }
+}
+
+if (path.resolve(process.argv[1]) === path.resolve(__filename)) {
+	getSizesTable()
+		.then(({ table }) => process.stdout.write(table))
+		.catch(console.error)
+}

@@ -7,7 +7,8 @@
   "types": "types/index.d.ts",
   "scripts": {
     "build-examples": "rollup examples/src/index.js --config examples/rollup.config.js",
-    "generate-types": "tsc --project tsconfig.typegen.json"
+    "generate-types": "tsc --project tsconfig.typegen.json",
+    "update-readme": "node scripts/docs.js"
   },
   "author": "3bl3gamer",
   "license": "MIT",
@@ -19,6 +20,7 @@
     "prettier": "^2.3.2",
     "rollup": "^2.56.3",
     "rollup-plugin-terser": "^7.0.2",
+    "typedoc": "file:../typedoc_fixes",
     "typescript": "^4.4.2"
   },
   "dependencies": {
