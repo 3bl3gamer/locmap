@@ -299,7 +299,7 @@ export function TileContainer(tileW, pathFunc) {
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
 		// view size in tiles
-		const tileViewSize = ((map.getWidth() * map.getHeight()) / tileW / tileW) | 0
+		const tileViewSize = ((map.getViewBoxWidth() * map.getViewBoxHeight()) / tileW / tileW) | 0
 
 		// refilling recent tiles array
 		lastDrawnUnderLevelTilesArr.length = 0

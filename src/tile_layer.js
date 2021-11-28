@@ -40,8 +40,8 @@ export function TileLayer(tileHost) {
 		const tileGridSize = 1 << level
 		const scale = (map.getZoom() * zoomDifference) / tileGridSize
 		const blockSize = tileHost.getTileWidth() * scale
-		const mapXShift = map.getTopLeftXShift()
-		const mapYShift = map.getTopLeftYShift()
+		const mapXShift = map.getViewBoxXShift()
+		const mapYShift = map.getViewBoxYShift()
 
 		let xShift, iFrom
 		if (mapXShift > 0) {
@@ -60,8 +60,14 @@ export function TileLayer(tileHost) {
 			jFrom = 0
 		}
 
-		const iCount = Math.min(tileGridSize - iFrom, (((map.getWidth() - xShift) / blockSize) | 0) + 1)
-		const jCount = Math.min(tileGridSize - jFrom, (((map.getHeight() - yShift) / blockSize) | 0) + 1)
+		const iCount = Math.min(
+			tileGridSize - iFrom,
+			(((map.getViewBoxWidth() - xShift) / blockSize) | 0) + 1,
+		)
+		const jCount = Math.min(
+			tileGridSize - jFrom,
+			(((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1,
+		)
 
 		tileHost.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles)
 	}

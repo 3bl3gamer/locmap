@@ -60,13 +60,13 @@ export function LocMap(wrap, conv) {
 	this.getProjConv = () => conv
 	this.getZoom = () => zoom
 	/** Map left edge offset from the view left edge (in pixels) */
-	this.getTopLeftXShift = () => xShift - curWidth / 2
+	this.getViewBoxXShift = () => xShift - curWidth / 2
 	/** Map top edge offset from the view top edge (in pixels) */
-	this.getTopLeftYShift = () => yShift - curHeight / 2
+	this.getViewBoxYShift = () => yShift - curHeight / 2
 	/** Map view width */
-	this.getWidth = () => curWidth
+	this.getViewBoxWidth = () => curWidth
 	/** Map view height */
-	this.getHeight = () => curHeight
+	this.getViewBoxHeight = () => curHeight
 
 	const canvas = document.createElement('canvas')
 	canvas.className = 'locmap-canvas'
@@ -185,7 +185,8 @@ export function LocMap(wrap, conv) {
 	let moveAnimationX = 0
 	let moveAnimationY = 0
 
-	const smoothIfNecessary = () => {
+	/** @param {number} frameTime */
+	const smoothIfNecessary = frameTime => {
 		const now = performance.now()
 
 		if (Math.abs(zoomAnimationDelta - 1) > zoomAnimationMinSpeed) {
@@ -241,11 +242,11 @@ export function LocMap(wrap, conv) {
 			requestAnimationFrame(onAnimationFrame)
 		}
 	}
-	/** @param {number} timeStamp */
-	function onAnimationFrame(timeStamp) {
+	/** @param {number} frameTime */
+	function onAnimationFrame(frameTime) {
 		animFrameRequested = false
+		smoothIfNecessary(frameTime)
 		drawLayers()
-		smoothIfNecessary()
 	}
 	/** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
 	this.requestRedraw = requestRedraw
@@ -307,7 +308,7 @@ export function LocMap(wrap, conv) {
 		zoomAnimationY = y
 		zoomAnimationPrevStamp = stamp
 		zoomAnimationMode = ZOOM_ANIM_MODE_SMOOTH
-		smoothIfNecessary()
+		smoothIfNecessary(stamp)
 	}
 
 	/**
@@ -339,7 +340,7 @@ export function LocMap(wrap, conv) {
 		moveAnimationY += dy
 		moveAnimationPrevStamp = stamp
 		moveAnimationMode = MOVE_ANIM_MODE_SMOOTH
-		smoothIfNecessary()
+		smoothIfNecessary(stamp)
 	}
 
 	/**
@@ -354,7 +355,7 @@ export function LocMap(wrap, conv) {
 		moveAnimationY = dy
 		moveAnimationPrevStamp = stamp
 		moveAnimationMode = MOVE_ANIM_MODE_INERTIA
-		requestAnimationFrame(smoothIfNecessary)
+		smoothIfNecessary(stamp)
 	}
 	/**
 	 * Start zoomin map with a certain speed and a gradual slowdown around `(x,y)` reference point.
@@ -370,7 +371,7 @@ export function LocMap(wrap, conv) {
 		zoomAnimationY = y
 		zoomAnimationPrevStamp = stamp
 		zoomAnimationMode = ZOOM_ANIM_MODE_INERTIA
-		requestAnimationFrame(smoothIfNecessary)
+		smoothIfNecessary(stamp)
 	}
 
 	//------------

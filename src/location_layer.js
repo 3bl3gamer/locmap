@@ -46,8 +46,8 @@ export function LocationLayer() {
 		const rc = map.get2dContext()
 		if (rc === null) return
 
-		const x = -map.getTopLeftXShift() + map.lon2x(lastLocation.longitude)
-		const y = -map.getTopLeftYShift() + map.lat2y(lastLocation.latitude)
+		const x = -map.getViewBoxXShift() + map.lon2x(lastLocation.longitude)
+		const y = -map.getViewBoxYShift() + map.lat2y(lastLocation.latitude)
 
 		const lineW = 4
 		const r = Math.max(lineW / 2, lastLocation.accuracy * map.meters2pixCoef(lastLocation.latitude))
@@ -60,7 +60,7 @@ export function LocationLayer() {
 		rc.fill()
 		strokeOutlined(rc, lineW, 'white', lineW / 2, 'black')
 
-		const size = Math.min(map.getWidth(), map.getHeight())
+		const size = Math.min(map.getViewBoxWidth(), map.getViewBoxHeight())
 		const crossSize = size / 50
 		const innerCrossThresh = size / 4
 		const outerCrossThresh = size / 100

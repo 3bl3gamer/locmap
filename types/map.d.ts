@@ -80,13 +80,13 @@ export class LocMap {
     getProjConv: () => ProjectionConverter;
     getZoom: () => number;
     /** Map left edge offset from the view left edge (in pixels) */
-    getTopLeftXShift: () => number;
+    getViewBoxXShift: () => number;
     /** Map top edge offset from the view top edge (in pixels) */
-    getTopLeftYShift: () => number;
+    getViewBoxYShift: () => number;
     /** Map view width */
-    getWidth: () => number;
+    getViewBoxWidth: () => number;
     /** Map view height */
-    getHeight: () => number;
+    getViewBoxHeight: () => number;
     getWrap: () => HTMLElement;
     getCanvas: () => HTMLCanvasElement;
     get2dContext: () => CanvasRenderingContext2D | null;
