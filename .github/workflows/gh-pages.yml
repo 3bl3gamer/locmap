@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: 16.11.1
 
+      - run: npm uninstall typedoc #TODO: https://github.com/TypeStrong/typedoc/pull/1810
+        working-directory: ${{ env.GITHUB_WORKSPACE }}
+
       - run: npm install #--release
         working-directory: ${{ env.GITHUB_WORKSPACE }}
 
