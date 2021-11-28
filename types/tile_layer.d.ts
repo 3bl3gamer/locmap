@@ -1,10 +1,14 @@
 /**
+ * Loads and draw tiles via {@linkcode TileContainer}.
+ * Disables tile load while zooming.
  * @class
  * @param {import('./tile_container').TileContainer} tileHost
  */
 export function TileLayer(tileHost: import('./tile_container').TileContainer): void;
 export class TileLayer {
     /**
+     * Loads and draw tiles via {@linkcode TileContainer}.
+     * Disables tile load while zooming.
      * @class
      * @param {import('./tile_container').TileContainer} tileHost
      */

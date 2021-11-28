@@ -47,10 +47,11 @@ function getApproximatedDelta(items, attr) {
 export const DBL_CLICK_MAX_DELAY = 500
 
 /**
+ * Enables mouse and touch input: gragging, wheel- and pinch-zooming.
  * @class
  * @param {{doNotInterfere?:boolean}} [opts]
  */
-export function MouseControlLayer(opts) {
+export function PointerControlLayer(opts) {
 	const { doNotInterfere } = opts || {}
 	/** @type {{off():unknown}} */
 	let control
@@ -291,10 +292,12 @@ export function MouseControlLayer(opts) {
 }
 
 /**
+ * Enables keyboard controls: arrows for movement, +/- for zoom. Shift can be used for speedup.
+ * Makes map element focusable.
  * @class
  * @param {object} [opts]
  * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
- *   It's a workaround for mobile Safari 14 (at least) bug where <canvas> performance
+ *   It's a workaround for mobile Safari 14 (at least) bug where `canvas` performance
  *   drops significantly after changing parent `tabIndex` attribute.
  */
 export function KeyboardControlLayer(opts) {
@@ -351,12 +354,14 @@ export function KeyboardControlLayer(opts) {
 }
 
 /**
+ * Layer for pointer (mouse/touch) and keyboard input.
+ * See {@linkcode PointerControlLayer} and {@linkcode KeyboardControlLayer}.
  * @class
- * @param {Parameters<typeof MouseControlLayer>[0]} [mouseOpts]
+ * @param {Parameters<typeof PointerControlLayer>[0]} [mouseOpts]
  * @param {Parameters<typeof KeyboardControlLayer>[0]} [kbdOpts]
  */
 export function ControlLayer(mouseOpts, kbdOpts) {
-	const items = [new MouseControlLayer(mouseOpts), new KeyboardControlLayer(kbdOpts)]
+	const items = [new PointerControlLayer(mouseOpts), new KeyboardControlLayer(kbdOpts)]
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
@@ -370,10 +375,14 @@ export function ControlLayer(mouseOpts, kbdOpts) {
 }
 
 /**
+ * Should be used with `doNotInterfere:true` set on {@linkcode MouseControlLayer} or {@linkcode ControlLayer}.
+ * Shows a text over the map when user input is ignored.
  * @class
- * @param {string} controlText
- * @param {string} twoFingersText
- * @param {{styles:Record<string,string>}} [opts ]
+ * @param {string} controlText text to be shown when `Ctrl`/`⌘` key is required to zoom.
+ *   For example: `` `hold ${controlHintKeyName()} to zoom` ``.
+ * @param {string} twoFingersText text to be shown when two fingers are required to drag.
+ *   For example: `'use two fingers to drag'`.
+ * @param {{styles:Record<string,string>}} [opts] text box style overrides
  */
 export function ControlHintLayer(controlText, twoFingersText, opts) {
 	const elem = document.createElement('div')
@@ -434,6 +443,10 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 	}
 }
 
+/**
+ * Returns `⌘` on MacOS/iOS and `Ctrl` on other platforms.
+ * Useful for {@linkcode ControlHintLayer}.
+ */
 export function controlHintKeyName() {
 	return navigator.userAgent.includes('Macintosh') ? '⌘' : 'Ctrl'
 }

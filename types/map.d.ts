@@ -27,9 +27,10 @@
  * }} MapLayer
  */
 /**
+ * Core map engine. Manages location, layers and some transition animations.
  * @class
- * @param {HTMLElement} wrap
- * @param {ProjectionConverter} conv
+ * @param {HTMLElement} wrap main map element
+ * @param {ProjectionConverter} conv projection config, usually `ProjectionMercator`
  */
 export function LocMap(wrap: HTMLElement, conv: ProjectionConverter): void;
 export class LocMap {
@@ -62,23 +63,29 @@ export class LocMap {
      * }} MapLayer
      */
     /**
+     * Core map engine. Manages location, layers and some transition animations.
      * @class
-     * @param {HTMLElement} wrap
-     * @param {ProjectionConverter} conv
+     * @param {HTMLElement} wrap main map element
+     * @param {ProjectionConverter} conv projection config, usually `ProjectionMercator`
      */
     constructor(wrap: HTMLElement, conv: ProjectionConverter);
     getLon: () => number;
     getLat: () => number;
     getLevel: () => number;
+    /** Map left edge offset from the view center (in pixels) */
     getXShift: () => number;
+    /** Map top edge offset from the view center (in pixels) */
     getYShift: () => number;
+    /** Returns current projection config */
     getProjConv: () => ProjectionConverter;
     getZoom: () => number;
-    getTopLeftXOffset: () => number;
-    getTopLeftYOffset: () => number;
+    /** Map left edge offset from the view left edge (in pixels) */
     getTopLeftXShift: () => number;
+    /** Map top edge offset from the view top edge (in pixels) */
     getTopLeftYShift: () => number;
+    /** Map view width */
     getWidth: () => number;
+    /** Map view height */
     getHeight: () => number;
     getWrap: () => HTMLElement;
     getCanvas: () => HTMLCanvasElement;
@@ -98,51 +105,71 @@ export class LocMap {
     /** @param {MapLayer} layer */
     unregister: (layer: MapLayer) => void;
     /**
-     * @param {number} _lon
-     * @param {number} _lat
-     * @param {number} _level
+     * Instantly update map location and zoom level.
+     * @param {number} lon_
+     * @param {number} lat_
+     * @param {number} level_
      */
-    updateLocation: (_lon: number, _lat: number, _level: number) => void;
+    updateLocation: (lon_: number, lat_: number, level_: number) => void;
+    /** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
     requestRedraw: () => void;
+    /**
+     * Should be called after map element (`wrap`) resize to update internal state and canvas.
+     */
     resize: () => void;
     /**
+     * Zoom in `delta` times using `(x,y)` as a reference point
+     * (stays in place when zooming, usually mouse position).
+     * `0 < zoom < 1` for zoom out.
      * @param {number} x
      * @param {number} y
      * @param {number} delta
      */
     zoom: (x: number, y: number, delta: number) => void;
     /**
+     * Zoom in `delta` times smoothly using `(x,y)` as a reference point.
+     * Motion resembles `ease-out`, i.e. slowing down to the end.
+     * Useful for handling zoom buttons and mouse wheel.
      * @param {number} x
      * @param {number} y
-     * @param {number} d
-     * @param {number} stamp
+     * @param {number} delta
+     * @param {number} stamp zoom start time, usually `event.timeStamp` or `performance.now()`
      */
-    zoomSmooth: (x: number, y: number, d: number, stamp: number) => void;
+    zoomSmooth: (x: number, y: number, delta: number, stamp: number) => void;
     /**
+     * Move map view by `(dx,dy)` pixels.
      * @param {number} dx
      * @param {number} dy
      */
     move: (dx: number, dy: number) => void;
     /**
+     * Move map view smoothly by `(dx,dy)` pixels.
+     * Motion resembles `ease-out`, i.e. slowing down to the end.
+     * Useful for handling move buttons.
      * @param {number} dx
      * @param {number} dy
-     * @param {number} stamp
+     * @param {number} stamp move start time, usually `event.timeStamp` or `performance.now()`
      */
     moveSmooth: (dx: number, dy: number, stamp: number) => void;
     /**
-     * @param {number} dx
-     * @param {number} dy
-     * @param {number} stamp
+     * Start moving map view with a certain speed and a gradual slowdown.
+     * Useful for mouse/touch handling.
+     * @param {number} dx horizontal speed in px/ms
+     * @param {number} dy vertival speed in px/ms
+     * @param {number} stamp move start time, usually `event.timeStamp` or `performance.now()`
      */
     applyMoveInertia: (dx: number, dy: number, stamp: number) => void;
     /**
+     * Start zoomin map with a certain speed and a gradual slowdown around `(x,y)` reference point.
+     * Useful for multitouch pinch-zoom handling.
      * @param {number} x
      * @param {number} y
-     * @param {number} dz
-     * @param {number} stamp
+     * @param {number} delta zoom speed, times per ms.
+     * @param {number} stamp zoom start time, usually `event.timeStamp` or `performance.now()`
      */
-    applyZoomInertia: (x: number, y: number, dz: number, stamp: number) => void;
+    applyZoomInertia: (x: number, y: number, delta: number, stamp: number) => void;
     /**
+     * Emits a built-in (see {@linkcode MapEventHandlersMap}) or custom event with some arguments.
      * @template {string} K
      * @param {K} name
      * @param {K extends keyof import('./common_types').MapEventHandlersMap

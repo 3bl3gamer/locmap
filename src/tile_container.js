@@ -16,9 +16,11 @@ function getTileKey(x, y, z) {
 }
 
 /**
+ * Loads, caches draws tiles. To be used with {@linkcode TileLayer}.
  * @class
- * @param {number} tileW
- * @param {(x:number, y:number, z:number) => string} pathFunc
+ * @param {number} tileW tile display size
+ * @param {(x:number, y:number, z:number) => string} pathFunc tile path func, for example:
+ *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
  */
 export function TileContainer(tileW, pathFunc) {
 	const cache = /** @type {Map<string,Tile>} */ (new Map())

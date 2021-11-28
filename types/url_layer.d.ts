@@ -1,4 +1,8 @@
-/** @class */
+/**
+ * Saves current map position to `location.hash` as `#{lon}/{lat}/{level}`.
+ * Updates map position on `location.hash` change.
+ * @class
+ */
 export function URLLayer(): void;
 export class URLLayer {
     /** @param {import('./map').LocMap} map */

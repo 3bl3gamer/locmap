@@ -14,7 +14,10 @@ function strokeOutlined(rc, w0, c0, w1, c1) {
 	rc.stroke()
 }
 
-/** @class */
+/**
+ * Watches current geolocation, draws a cross or a circle (depending on accuracy) on the map.
+ * @class
+ */
 export function LocationLayer() {
 	let lastLocation = /** @type {GeolocationCoordinates|null} */ (null)
 	let watchID = /** @type {number|null} */ (null)

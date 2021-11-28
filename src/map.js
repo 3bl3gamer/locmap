@@ -31,9 +31,10 @@
  */
 
 /**
+ * Core map engine. Manages location, layers and some transition animations.
  * @class
- * @param {HTMLElement} wrap
- * @param {ProjectionConverter} conv
+ * @param {HTMLElement} wrap main map element
+ * @param {ProjectionConverter} conv projection config, usually `ProjectionMercator`
  */
 export function LocMap(wrap, conv) {
 	const rect = wrap.getBoundingClientRect()
@@ -51,15 +52,20 @@ export function LocMap(wrap, conv) {
 	this.getLon = () => lon
 	this.getLat = () => lat
 	this.getLevel = () => level
+	/** Map left edge offset from the view center (in pixels) */
 	this.getXShift = () => xShift
+	/** Map top edge offset from the view center (in pixels) */
 	this.getYShift = () => yShift
+	/** Returns current projection config */
 	this.getProjConv = () => conv
 	this.getZoom = () => zoom
-	this.getTopLeftXOffset = () => curWidth / 2
-	this.getTopLeftYOffset = () => curHeight / 2
+	/** Map left edge offset from the view left edge (in pixels) */
 	this.getTopLeftXShift = () => xShift - curWidth / 2
+	/** Map top edge offset from the view top edge (in pixels) */
 	this.getTopLeftYShift = () => yShift - curHeight / 2
+	/** Map view width */
 	this.getWidth = () => curWidth
+	/** Map view height */
 	this.getHeight = () => curHeight
 
 	const canvas = document.createElement('canvas')
@@ -126,15 +132,16 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
-	 * @param {number} _lon
-	 * @param {number} _lat
-	 * @param {number} _level
+	 * Instantly update map location and zoom level.
+	 * @param {number} lon_
+	 * @param {number} lat_
+	 * @param {number} level_
 	 */
-	this.updateLocation = (_lon, _lat, _level) => {
-		lon = _lon
-		lat = _lat
-		level = Math.round(_level)
-		zoom = Math.pow(2, _level)
+	this.updateLocation = (lon_, lat_, level_) => {
+		lon = lon_
+		lat = lat_
+		level = Math.round(level_)
+		zoom = Math.pow(2, level_)
 		pos_map2screen()
 		updateLayers()
 		requestRedraw()
@@ -240,11 +247,16 @@ export function LocMap(wrap, conv) {
 		drawLayers()
 		smoothIfNecessary()
 	}
+	/** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
 	this.requestRedraw = requestRedraw
 
 	//-------------------
 	// control inner
 	//-------------------
+
+	/**
+	 * Should be called after map element (`wrap`) resize to update internal state and canvas.
+	 */
 	this.resize = () => {
 		const rect = wrap.getBoundingClientRect()
 
@@ -258,6 +270,9 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
+	 * Zoom in `delta` times using `(x,y)` as a reference point
+	 * (stays in place when zooming, usually mouse position).
+	 * `0 < zoom < 1` for zoom out.
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} delta
@@ -277,14 +292,17 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
+	 * Zoom in `delta` times smoothly using `(x,y)` as a reference point.
+	 * Motion resembles `ease-out`, i.e. slowing down to the end.
+	 * Useful for handling zoom buttons and mouse wheel.
 	 * @param {number} x
 	 * @param {number} y
-	 * @param {number} d
-	 * @param {number} stamp
+	 * @param {number} delta
+	 * @param {number} stamp zoom start time, usually `event.timeStamp` or `performance.now()`
 	 */
-	this.zoomSmooth = (x, y, d, stamp) => {
+	this.zoomSmooth = (x, y, delta, stamp) => {
 		if (zoomAnimationMode !== ZOOM_ANIM_MODE_SMOOTH) zoomAnimationDelta = 1
-		zoomAnimationDelta = Math.max(minZoom / zoom, zoomAnimationDelta * d)
+		zoomAnimationDelta = Math.max(minZoom / zoom, zoomAnimationDelta * delta)
 		zoomAnimationX = x
 		zoomAnimationY = y
 		zoomAnimationPrevStamp = stamp
@@ -293,6 +311,7 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
+	 * Move map view by `(dx,dy)` pixels.
 	 * @param {number} dx
 	 * @param {number} dy
 	 */
@@ -307,9 +326,12 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
+	 * Move map view smoothly by `(dx,dy)` pixels.
+	 * Motion resembles `ease-out`, i.e. slowing down to the end.
+	 * Useful for handling move buttons.
 	 * @param {number} dx
 	 * @param {number} dy
-	 * @param {number} stamp
+	 * @param {number} stamp move start time, usually `event.timeStamp` or `performance.now()`
 	 */
 	this.moveSmooth = (dx, dy, stamp) => {
 		if (moveAnimationMode !== MOVE_ANIM_MODE_SMOOTH) moveAnimationX = moveAnimationY = 0
@@ -321,9 +343,11 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
-	 * @param {number} dx
-	 * @param {number} dy
-	 * @param {number} stamp
+	 * Start moving map view with a certain speed and a gradual slowdown.
+	 * Useful for mouse/touch handling.
+	 * @param {number} dx horizontal speed in px/ms
+	 * @param {number} dy vertival speed in px/ms
+	 * @param {number} stamp move start time, usually `event.timeStamp` or `performance.now()`
 	 */
 	this.applyMoveInertia = (dx, dy, stamp) => {
 		moveAnimationX = dx
@@ -333,13 +357,15 @@ export function LocMap(wrap, conv) {
 		requestAnimationFrame(smoothIfNecessary)
 	}
 	/**
+	 * Start zoomin map with a certain speed and a gradual slowdown around `(x,y)` reference point.
+	 * Useful for multitouch pinch-zoom handling.
 	 * @param {number} x
 	 * @param {number} y
-	 * @param {number} dz
-	 * @param {number} stamp
+	 * @param {number} delta zoom speed, times per ms.
+	 * @param {number} stamp zoom start time, usually `event.timeStamp` or `performance.now()`
 	 */
-	this.applyZoomInertia = (x, y, dz, stamp) => {
-		zoomAnimationDelta = dz
+	this.applyZoomInertia = (x, y, delta, stamp) => {
+		zoomAnimationDelta = delta
 		zoomAnimationX = x
 		zoomAnimationY = y
 		zoomAnimationPrevStamp = stamp
@@ -355,6 +381,7 @@ export function LocMap(wrap, conv) {
 	//       and editor will provide `name` completions (like with `addEventListener`)
 	//       https://github.com/microsoft/TypeScript/issues/25590
 	/**
+	 * Emits a built-in (see {@linkcode MapEventHandlersMap}) or custom event with some arguments.
 	 * @template {string} K
 	 * @param {K} name
 	 * @param {K extends keyof import('./common_types').MapEventHandlersMap

@@ -1,4 +1,6 @@
 /**
+ * Loads and draw tiles via {@linkcode TileContainer}.
+ * Disables tile load while zooming.
  * @class
  * @param {import('./tile_container').TileContainer} tileHost
  */

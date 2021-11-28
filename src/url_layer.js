@@ -8,7 +8,11 @@ function applyHashLocation(map) {
 	map.updateLocation(lon, lat, level)
 }
 
-/** @class */
+/**
+ * Saves current map position to `location.hash` as `#{lon}/{lat}/{level}`.
+ * Updates map position on `location.hash` change.
+ * @class
+ */
 export function URLLayer() {
 	let updateTimeout = -1
 	/** @param {import('./map').LocMap} map */
