@@ -26,8 +26,8 @@ const classPriorities = [
 	'TileLayer',
 	'TileContainer',
 	'ControlLayer',
+	'PointerControlLayer',
 	'KeyboardControlLayer',
-	'MouseControlLayer',
 ].reverse()
 
 const propPriorities = {
