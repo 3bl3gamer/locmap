@@ -11,34 +11,59 @@ function point_distance(x1, y1, x2, y2) {
 }
 
 /**
+ * Returns `attr` speed prediction for `timeStamp` moment by
+ * calculating acceleration of values `items[i][attr]` (with linear approximation).
  * @param {{stamp:number}[]} items
  * @param {string} attr
+ * @param {number} timeStamp
  */
-function getApproximatedDelta(items, attr) {
+function getApproximatedSpeed(items, attr, timeStamp) {
 	// https://prog-cpp.ru/mnk/
 	let sumx = 0
 	let sumy = 0
 	let sumx2 = 0
 	let sumxy = 0
 	let n = 0
+	const len = items.length
 	const now = performance.now()
-	let startI = items.length - 1
-	for (let i = startI; i >= 0; i--) {
-		const x = items[i].stamp
-		if (now - x > 150) break
-		const y = /**@type {number}*/ (items[i][attr])
+	const last = items[len - 1]
+	let cur = last
+	for (let i = len - 1; i > 0; i--) {
+		const prev = items[i - 1]
+		if (now - prev.stamp > 150) break
+		const dtime = cur.stamp - prev.stamp
+		const dattr = cur[attr] - prev[attr]
+		if (dtime === 0) continue
+
+		const x = cur.stamp
+		const y = /**@type {number}*/ (dattr / dtime)
 		sumx += x
 		sumy += y
 		sumx2 += x * x
 		sumxy += x * y
 		n++
+		cur = prev
 	}
-	if (n <= 1) return 0
+
+	if (n === 1) {
+		// Got only two usable items (the last movement was too short),
+		// just returning average speed between them.
+		const dtime = last.stamp - cur.stamp
+		const dattr = last[attr] - cur[attr]
+		if (dtime < 4) return 0 //in case events are too close or have the same time
+		return dattr / dtime
+	}
+	if (n === 0) return 0
+
 	const aDenom = n * sumx2 - sumx * sumx
 	if (aDenom === 0) return 0
 	const a = (n * sumxy - sumx * sumy) / aDenom
-	// const b = (sumy - a * sumx) / n
-	return a
+	const b = (sumy - a * sumx) / n
+	let k = a * timeStamp + b
+
+	const dattr = last[attr] - cur[attr]
+	if (k * dattr < 0) k = 0 //if acceleration changes the sign (i.e. flips direction), movement should be stopped
+	return k
 }
 
 /**
@@ -115,11 +140,14 @@ export function PointerControlLayer(opts) {
 		last.dist = lastDoubleTouch_dist
 		last.stamp = stamp
 	}
-	/** @param {import('./map').LocMap} map */
-	function applyInertia(map) {
-		const dx = getApproximatedDelta(lastMoves, 'x')
-		const dy = getApproximatedDelta(lastMoves, 'y')
-		const dz = getApproximatedDelta(lastZooms, 'dist') / lastDoubleTouch_dist + 1
+	/**
+	 * @param {import('./map').LocMap} map
+	 * @param {number} timeStamp
+	 */
+	function applyInertia(map, timeStamp) {
+		const dx = getApproximatedSpeed(lastMoves, 'x', timeStamp)
+		const dy = getApproximatedSpeed(lastMoves, 'y', timeStamp)
+		const dz = getApproximatedSpeed(lastZooms, 'dist', timeStamp) / lastDoubleTouch_dist + 1
 		map.applyMoveInertia(dx, dy, lastMoves[lastMoves.length - 1].stamp)
 		map.applyZoomInertia(mouseX, mouseY, dz, lastZooms[lastZooms.length - 1].stamp)
 	}
@@ -127,7 +155,7 @@ export function PointerControlLayer(opts) {
 	/**
 	 * Sets mouse(x,y) to (x,y) with special post-double-touch correction.
 	 *
-	 * Two fingers do not lift simultaneously, so there is always two-touches -> one-touch -> no touch.
+	 * Two fingers do not lift simultaneously, so there is (almost) always two-touches -> one-touch -> no touch.
 	 * This may cause a problem if two touches move in opposite directions (zooming):
 	 * while they both are down, there is a little movement,
 	 * but when first touch lift, second (still down) starts to move map aside with significant speed.
@@ -135,7 +163,7 @@ export function PointerControlLayer(opts) {
 	 * All that makes motion at the end of zoom gesture looks trembling.
 	 *
 	 * This function tries to fix that by continuing double-touch motion for a while.
-	 * Used only for movement: zooming should remain smooth thanks to applyInertia() ath the end of doubleUp().
+	 * Used only for movement: zooming should remain smooth thanks to applyInertia() at the end of doubleUp().
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} stamp
@@ -206,10 +234,10 @@ export function PointerControlLayer(opts) {
 				return true
 			},
 			singleUp(e, id, isSwitching) {
-				if (!isSwitching) applyInertia(map)
+				const stamp = e.timeStamp
+				if (!isSwitching) applyInertia(map, stamp)
 				map.emit('singleUp', { x: mouseX, y: mouseY, id, isSwitching })
 				if (moveDistance < 5 && !isSwitching) {
-					const stamp = e.timeStamp
 					if (lastDoubleTouchParams) {
 						map.zoomSmooth(mouseX, mouseY, 0.5, stamp)
 						const [id0, x0, y0, id1, x1, y1] = lastDoubleTouchParams
@@ -256,9 +284,9 @@ export function PointerControlLayer(opts) {
 				return true
 			},
 			doubleUp(e, id0, id1) {
-				applyInertia(map)
-				lastDoubleTouch_dx = getApproximatedDelta(lastMoves, 'x')
-				lastDoubleTouch_dy = getApproximatedDelta(lastMoves, 'y')
+				const stamp = e.timeStamp
+				lastDoubleTouch_dx = getApproximatedSpeed(lastMoves, 'x', stamp)
+				lastDoubleTouch_dy = getApproximatedSpeed(lastMoves, 'y', stamp)
 				lastDoubleTouch_stamp = e.timeStamp
 				map.emit('doubleUp', { id0, id1 })
 				return true
