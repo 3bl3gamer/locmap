@@ -2,7 +2,7 @@ import {
 	LocMap,
 	ControlLayer,
 	ControlHintLayer,
-	TileContainer,
+	SmoothTileContainer,
 	TileLayer,
 	ProjectionMercator,
 	LocationLayer,
@@ -37,7 +37,7 @@ footer.textContent = 'More content'
 document.body.appendChild(footer)
 
 const map = new LocMap(mapWrap, ProjectionMercator)
-const tileContainer = new TileContainer(
+const tileContainer = new SmoothTileContainer(
 	256,
 	(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
 )

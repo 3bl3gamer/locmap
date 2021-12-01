@@ -1,12 +1,22 @@
 /**
- * Loads and draw tiles via {@linkcode TileContainer}.
+ * @typedef {object} TileContainer
+ * @prop {() => unknown} clearCache
+ * @prop {() => number} getTileWidth
+ * @prop {(map:import('./map').LocMap,
+ *   xShift:number, yShift:number, scale:number,
+ *   iFrom:number, jFrom:number, iCount:number, jCount:number, level:number,
+ *   shouldLoad: boolean) => unknown} draw
+ */
+
+/**
+ * Loads and draw tiles using {@linkcode TileContainer}.
  * Disables tile load while zooming.
  * @class
- * @param {import('./tile_container').TileContainer} tileHost
+ * @param {TileContainer} tileContainer tile cache/drawer, for example {@linkcode SmoothTileContainer}
  */
-export function TileLayer(tileHost) {
-	const levelDifference = -Math.log2(tileHost.getTileWidth())
-	const zoomDifference = 1 / tileHost.getTileWidth()
+export function TileLayer(tileContainer) {
+	const levelDifference = -Math.log2(tileContainer.getTileWidth())
+	const zoomDifference = 1 / tileContainer.getTileWidth()
 
 	let shouldLoadTiles = true
 	let lastZoomAt = 0
@@ -31,7 +41,7 @@ export function TileLayer(tileHost) {
 
 	/** @param {import('./map').LocMap} map */
 	this.unregister = map => {
-		tileHost.clearCache()
+		tileContainer.clearCache()
 	}
 
 	/** @param {import('./map').LocMap} map */
@@ -39,7 +49,7 @@ export function TileLayer(tileHost) {
 		const level = map.getLevel() + levelDifference
 		const tileGridSize = 1 << level
 		const scale = (map.getZoom() * zoomDifference) / tileGridSize
-		const blockSize = tileHost.getTileWidth() * scale
+		const blockSize = tileContainer.getTileWidth() * scale
 		const mapXShift = map.getViewBoxXShift()
 		const mapYShift = map.getViewBoxYShift()
 
@@ -69,7 +79,7 @@ export function TileLayer(tileHost) {
 			(((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1,
 		)
 
-		tileHost.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles)
+		tileContainer.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles)
 	}
 
 	/** @type {import('./map').MapEventHandlers} */

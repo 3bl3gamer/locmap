@@ -84,25 +84,25 @@ export default async function (commandOptions) {
 
 export async function getSizesTable() {
 	const baseSizes = await getSizes(`
-import { LocMap, TileContainer, TileLayer, ProjectionMercator } from '${mapSrcDir}'
+import { LocMap, SmoothTileContainer, TileLayer, ProjectionMercator } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new TileContainer(256, (x, y, z) =>
+const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
 	\`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
 map.register(new TileLayer(tileContainer))`)
 
 	const regularSizes = await getSizes(`
-import { LocMap, ControlLayer, ControlHintLayer, TileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
+import { LocMap, ControlLayer, ControlHintLayer, SmoothTileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new TileContainer(256, (x, y, z) =>
+const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
 	\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
 map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())
 appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
 
 	const fullSizes = await getSizes(`
-import { LocMap, ControlLayer, controlHintKeyName, ControlHintLayer, TileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
+import { LocMap, ControlLayer, controlHintKeyName, ControlHintLayer, SmoothTileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new TileContainer(256, (x, y, z) =>
+const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
 	\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
 map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())

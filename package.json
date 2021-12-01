@@ -7,7 +7,7 @@
   "types": "types/index.d.ts",
   "scripts": {
     "build-examples": "rollup examples/src/index.js --config examples/rollup.config.js",
-    "generate-types": "tsc --project tsconfig.typegen.json",
+    "update-types": "tsc --project tsconfig.typegen.json",
     "update-readme": "node scripts/docs.js"
   },
   "author": "3bl3gamer",

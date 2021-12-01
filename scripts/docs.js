@@ -24,7 +24,7 @@ const baseDir = `${__dirname}/..`
 const classPriorities = [
 	'LocMap',
 	'TileLayer',
-	'TileContainer',
+	'SmoothTileContainer',
 	'ControlLayer',
 	'PointerControlLayer',
 	'KeyboardControlLayer',
@@ -51,7 +51,7 @@ const skipProperties = [
 		props: ['register', 'unregister', 'update', 'redraw', 'onEvent'],
 	},
 	{
-		re: /^TileContainer$/,
+		re: /TileContainer$/,
 		props: ['draw', 'clearCache', 'getTileWidth'],
 	},
 ]

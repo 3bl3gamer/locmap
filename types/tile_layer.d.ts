@@ -1,18 +1,36 @@
 /**
- * Loads and draw tiles via {@linkcode TileContainer}.
+ * @typedef {object} TileContainer
+ * @prop {() => unknown} clearCache
+ * @prop {() => number} getTileWidth
+ * @prop {(map:import('./map').LocMap,
+ *   xShift:number, yShift:number, scale:number,
+ *   iFrom:number, jFrom:number, iCount:number, jCount:number, level:number,
+ *   shouldLoad: boolean) => unknown} draw
+ */
+/**
+ * Loads and draw tiles using {@linkcode TileContainer}.
  * Disables tile load while zooming.
  * @class
- * @param {import('./tile_container').TileContainer} tileHost
+ * @param {TileContainer} tileContainer tile cache/drawer, for example {@linkcode SmoothTileContainer}
  */
-export function TileLayer(tileHost: import('./tile_container').TileContainer): void;
+export function TileLayer(tileContainer: TileContainer): void;
 export class TileLayer {
     /**
-     * Loads and draw tiles via {@linkcode TileContainer}.
+     * @typedef {object} TileContainer
+     * @prop {() => unknown} clearCache
+     * @prop {() => number} getTileWidth
+     * @prop {(map:import('./map').LocMap,
+     *   xShift:number, yShift:number, scale:number,
+     *   iFrom:number, jFrom:number, iCount:number, jCount:number, level:number,
+     *   shouldLoad: boolean) => unknown} draw
+     */
+    /**
+     * Loads and draw tiles using {@linkcode TileContainer}.
      * Disables tile load while zooming.
      * @class
-     * @param {import('./tile_container').TileContainer} tileHost
+     * @param {TileContainer} tileContainer tile cache/drawer, for example {@linkcode SmoothTileContainer}
      */
-    constructor(tileHost: import('./tile_container').TileContainer);
+    constructor(tileContainer: TileContainer);
     /** @param {import('./map').LocMap} map */
     unregister: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
@@ -20,3 +38,8 @@ export class TileLayer {
     /** @type {import('./map').MapEventHandlers} */
     onEvent: import('./map').MapEventHandlers;
 }
+export type TileContainer = {
+    clearCache: () => unknown;
+    getTileWidth: () => number;
+    draw: (map: import('./map').LocMap, xShift: number, yShift: number, scale: number, iFrom: number, jFrom: number, iCount: number, jCount: number, level: number, shouldLoad: boolean) => unknown;
+};

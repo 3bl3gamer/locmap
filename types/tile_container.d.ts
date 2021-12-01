@@ -5,8 +5,8 @@
  * @param {(x:number, y:number, z:number) => string} pathFunc tile path func, for example:
  *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
  */
-export function TileContainer(tileW: number, pathFunc: (x: number, y: number, z: number) => string): void;
-export class TileContainer {
+export function SmoothTileContainer(tileW: number, pathFunc: (x: number, y: number, z: number) => string): void;
+export class SmoothTileContainer {
     /**
      * Loads, caches draws tiles. To be used with {@linkcode TileLayer}.
      * @class

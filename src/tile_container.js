@@ -22,7 +22,7 @@ function getTileKey(x, y, z) {
  * @param {(x:number, y:number, z:number) => string} pathFunc tile path func, for example:
  *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
  */
-export function TileContainer(tileW, pathFunc) {
+export function SmoothTileContainer(tileW, pathFunc) {
 	const cache = /** @type {Map<string,Tile>} */ (new Map())
 
 	let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
