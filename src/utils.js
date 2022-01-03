@@ -32,3 +32,5 @@ export function appendCredit(wrap, html, style = CREDIT_BOTTOM_RIGHT) {
 	for (const name in style) elem.style[name] = /**@type {string}*/ (style[name])
 	wrap.appendChild(elem)
 }
+
+export const floor = Math.floor

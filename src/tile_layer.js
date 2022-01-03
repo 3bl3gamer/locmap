@@ -1,3 +1,5 @@
+import { floor } from './utils'
+
 /**
  * @typedef {object} TileContainer
  * @prop {() => unknown} clearCache
@@ -15,9 +17,6 @@
  * @param {TileContainer} tileContainer tile cache/drawer, for example {@linkcode SmoothTileContainer}
  */
 export function TileLayer(tileContainer) {
-	const levelDifference = -Math.log2(tileContainer.getTileWidth())
-	const zoomDifference = 1 / tileContainer.getTileWidth()
-
 	let shouldLoadTiles = true
 	let lastZoomAt = 0
 	let curZoomTotalDelta = 1
@@ -46,38 +45,23 @@ export function TileLayer(tileContainer) {
 
 	/** @param {import('./map').LocMap} map */
 	this.redraw = map => {
-		const level = map.getLevel() + levelDifference
-		const tileGridSize = 1 << level
-		const scale = (map.getZoom() * zoomDifference) / tileGridSize
-		const blockSize = tileContainer.getTileWidth() * scale
+		const tileW = tileContainer.getTileWidth()
+		//extra level shift (not 0.5), or on half-level zoom text on tiles may be too small
+		const level = Math.floor(Math.log2(map.getZoom() / tileW) + 0.4)
+		const tileGridSize = 2 ** level
+		const scale = map.getZoom() / tileW / tileGridSize
+		const blockSize = tileW * scale
 		const mapXShift = map.getViewBoxXShift()
 		const mapYShift = map.getViewBoxYShift()
 
-		let xShift, iFrom
-		if (mapXShift > 0) {
-			xShift = -mapXShift % blockSize
-			iFrom = (mapXShift / blockSize) | 0
-		} else {
-			xShift = -mapXShift
-			iFrom = 0
-		}
-		let yShift, jFrom
-		if (mapYShift > 0) {
-			yShift = -mapYShift % blockSize
-			jFrom = (mapYShift / blockSize) | 0
-		} else {
-			yShift = -mapYShift
-			jFrom = 0
-		}
+		const iFrom = floor(mapXShift / blockSize)
+		const xShift = -mapXShift + iFrom * blockSize
 
-		const iCount = Math.min(
-			tileGridSize - iFrom,
-			(((map.getViewBoxWidth() - xShift) / blockSize) | 0) + 1,
-		)
-		const jCount = Math.min(
-			tileGridSize - jFrom,
-			(((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1,
-		)
+		const jFrom = floor(mapYShift / blockSize)
+		const yShift = -mapYShift + jFrom * blockSize
+
+		const iCount = (((map.getViewBoxWidth() - xShift) / blockSize) | 0) + 1
+		const jCount = (((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1
 
 		tileContainer.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles)
 	}
@@ -94,7 +78,7 @@ export function TileLayer(tileContainer) {
 			// if zoomed enough
 			if (curZoomTotalDelta < 1 / 1.2 || curZoomTotalDelta > 1.2) {
 				// if fast enough
-				const isFast = timeDelta === 0 || Math.abs(Math.pow(delta, 1 / timeDelta) - 1) > 0.0005
+				const isFast = timeDelta === 0 || Math.abs(delta ** (1 / timeDelta) - 1) > 0.0005
 				if (isFast) {
 					// unpausing periodically in case of long slow zooming
 					if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80)

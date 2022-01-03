@@ -71,14 +71,13 @@ export class LocMap {
     constructor(wrap: HTMLElement, conv: ProjectionConverter);
     getLon: () => number;
     getLat: () => number;
-    getLevel: () => number;
+    getZoom: () => number;
     /** Map left edge offset from the view center (in pixels) */
     getXShift: () => number;
     /** Map top edge offset from the view center (in pixels) */
     getYShift: () => number;
     /** Returns current projection config */
     getProjConv: () => ProjectionConverter;
-    getZoom: () => number;
     /** Map left edge offset from the view left edge (in pixels) */
     getViewBoxXShift: () => number;
     /** Map top edge offset from the view top edge (in pixels) */
@@ -87,6 +86,17 @@ export class LocMap {
     getViewBoxWidth: () => number;
     /** Map view height */
     getViewBoxHeight: () => number;
+    /**
+     * Returns min and max zoom
+     * @returns {[min:number, max:number]}
+     */
+    getZoomRange: () => [min: number, max: number];
+    /**
+     * Sets min and max zoom. Does not clamp current zoom.
+     * @param {number} min
+     * @param {number} max
+     */
+    setZoomRange: (min: number, max: number) => void;
     getWrap: () => HTMLElement;
     getCanvas: () => HTMLCanvasElement;
     get2dContext: () => CanvasRenderingContext2D | null;
@@ -105,12 +115,12 @@ export class LocMap {
     /** @param {MapLayer} layer */
     unregister: (layer: MapLayer) => void;
     /**
-     * Instantly update map location and zoom level.
+     * Instantly update map location and zoom.
      * @param {number} lon_
      * @param {number} lat_
-     * @param {number} level_
+     * @param {number} zoom_
      */
-    updateLocation: (lon_: number, lat_: number, level_: number) => void;
+    updateLocation: (lon_: number, lat_: number, zoom_: number) => void;
     /** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
     requestRedraw: () => void;
     /**

@@ -43,22 +43,21 @@ export function LocMap(wrap, conv) {
 
 	let lon = 0
 	let lat = 0
-	let level = 8
+	let zoom = 256
 	let xShift = 0
 	let yShift = 0
-	let zoom = Math.pow(2, level)
-	let minZoom = 256
+	let minZoom = 0
+	let maxZoom = Infinity
 
 	this.getLon = () => lon
 	this.getLat = () => lat
-	this.getLevel = () => level
+	this.getZoom = () => zoom
 	/** Map left edge offset from the view center (in pixels) */
 	this.getXShift = () => xShift
 	/** Map top edge offset from the view center (in pixels) */
 	this.getYShift = () => yShift
 	/** Returns current projection config */
 	this.getProjConv = () => conv
-	this.getZoom = () => zoom
 	/** Map left edge offset from the view left edge (in pixels) */
 	this.getViewBoxXShift = () => xShift - curWidth / 2
 	/** Map top edge offset from the view top edge (in pixels) */
@@ -67,6 +66,21 @@ export function LocMap(wrap, conv) {
 	this.getViewBoxWidth = () => curWidth
 	/** Map view height */
 	this.getViewBoxHeight = () => curHeight
+
+	/**
+	 * Returns min and max zoom
+	 * @returns {[min:number, max:number]}
+	 */
+	this.getZoomRange = () => [minZoom, maxZoom]
+	/**
+	 * Sets min and max zoom. Does not clamp current zoom.
+	 * @param {number} min
+	 * @param {number} max
+	 */
+	this.setZoomRange = (min, max) => {
+		minZoom = min
+		maxZoom = max
+	}
 
 	const canvas = document.createElement('canvas')
 	canvas.className = 'locmap-canvas'
@@ -132,16 +146,15 @@ export function LocMap(wrap, conv) {
 	}
 
 	/**
-	 * Instantly update map location and zoom level.
+	 * Instantly update map location and zoom.
 	 * @param {number} lon_
 	 * @param {number} lat_
-	 * @param {number} level_
+	 * @param {number} zoom_
 	 */
-	this.updateLocation = (lon_, lat_, level_) => {
+	this.updateLocation = (lon_, lat_, zoom_) => {
 		lon = lon_
 		lat = lat_
-		level = Math.round(level_)
-		zoom = Math.pow(2, level_)
+		zoom = zoom_
 		pos_map2screen()
 		updateLayers()
 		requestRedraw()
@@ -280,8 +293,7 @@ export function LocMap(wrap, conv) {
 	 */
 	this.zoom = (x, y, delta) => {
 		const prevZoom = zoom
-		zoom = Math.max(minZoom, zoom * delta)
-		level = Math.round(Math.log2(zoom) - 0.1) //extra level shift, or on half-level zoom text on tiles may be too small
+		zoom = mutlClamp(minZoom, maxZoom, zoom, delta)
 		const actualDelta = zoom / prevZoom
 		xShift += (-x + curWidth / 2 - xShift) * (1 - actualDelta)
 		yShift += (-y + curHeight / 2 - yShift) * (1 - actualDelta)
@@ -303,7 +315,7 @@ export function LocMap(wrap, conv) {
 	 */
 	this.zoomSmooth = (x, y, delta, stamp) => {
 		if (zoomAnimationMode !== ZOOM_ANIM_MODE_SMOOTH) zoomAnimationDelta = 1
-		zoomAnimationDelta = Math.max(minZoom / zoom, zoomAnimationDelta * delta)
+		zoomAnimationDelta = mutlClamp(minZoom / zoom, maxZoom / zoom, zoomAnimationDelta, delta)
 		zoomAnimationX = x
 		zoomAnimationY = y
 		zoomAnimationPrevStamp = stamp
@@ -397,8 +409,10 @@ export function LocMap(wrap, conv) {
 		}
 	}
 
-	lon = 0
-	lat = 0
+	//-----------
+	// setup
+	//-----------
+
 	pos_map2screen()
 }
 
@@ -495,4 +509,17 @@ export const ProjectionYandexMercator = {
 		lat *= Math.PI / 180
 		return zoom / 40075000 / Math.abs(Math.cos(lat))
 	},
+}
+
+/**
+ * @param {number} min
+ * @param {number} max
+ * @param {number} val
+ * @param {number} delta
+ */
+function mutlClamp(min, max, val, delta) {
+	val *= delta
+	if (delta < 1 && val < min) val = min
+	if (delta > 1 && val > max) val = max
+	return val
 }

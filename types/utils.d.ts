@@ -14,3 +14,4 @@ export function oneOf<T>(...args: T[]): T;
 export function appendCredit(wrap: HTMLElement, html: string, style?: Partial<CSSStyleDeclaration> | undefined): void;
 /** @type {Partial<CSSStyleDeclaration>} */
 export const CREDIT_BOTTOM_RIGHT: Partial<CSSStyleDeclaration>;
+export const floor: (x: number) => number;

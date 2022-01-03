@@ -1,8 +1,17 @@
-/** @typedef {{img:HTMLImageElement, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile */
+/**
+ * @template {HTMLImageElement|null} T
+ * @typedef {{img:T, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile
+ */
+/** @typedef {Tile<null>} LoadingTile */
+/** @typedef {Tile<HTMLImageElement>} ReadyTile */
+/** @typedef {Tile<HTMLImageElement|null>} AnyTile */
 
-/** @param {Tile} tile */
+/**
+ * @param {AnyTile} tile
+ * @returns {tile is ReadyTile}
+ */
 function isLoaded(tile) {
-	return tile.img.complete && tile.img.naturalWidth > 0
+	return !!tile.img && tile.img.complete && tile.img.naturalWidth > 0
 }
 
 /**
@@ -16,17 +25,21 @@ function getTileKey(x, y, z) {
 }
 
 /**
- * Loads, caches draws tiles. To be used with {@linkcode TileLayer}.
+ * Loads, caches and draws tiles with transitions. To be used with {@linkcode TileLayer}.
  * @class
  * @param {number} tileW tile display size
- * @param {(x:number, y:number, z:number) => string} pathFunc tile path func, for example:
+ * @param {(x:number, y:number, z:number) => string|null} pathFunc tile path func, for example:
  *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
+ *
+ *   May return `null` to skip tile loading.
+ * @param {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} [tilePlaceholderDrawFunc]
+ *   draws placeholder when tile is not ready or has failed to load (for example, {@linkcode drawRectTilePlaceholder})
  */
-export function SmoothTileContainer(tileW, pathFunc) {
-	const cache = /** @type {Map<string,Tile>} */ (new Map())
+export function SmoothTileContainer(tileW, pathFunc, tilePlaceholderDrawFunc) {
+	const cache = /** @type {Map<string,AnyTile>} */ (new Map())
 
-	let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set())
-	const lastDrawnUnderLevelTilesArr = /**@type {Tile[]}*/ ([])
+	let lastDrawnTiles = /**@type {Set<ReadyTile>}*/ (new Set())
+	const lastDrawnUnderLevelTilesArr = /**@type {ReadyTile[]}*/ ([])
 
 	/** @type {[iFrom:number, jFrom:number, iCount:number, jCount:number, level:number]} */
 	let prevTileRegion = [0, 0, 0, 0, 0]
@@ -38,22 +51,35 @@ export function SmoothTileContainer(tileW, pathFunc) {
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} z
-	 * @returns {Tile}
+	 * @returns {AnyTile}
 	 */
 	function makeTile(map, x, y, z) {
-		const img = new Image()
-		const tile = { img, x, y, z, appearAt: 0, lastDrawIter: 0 }
-		img.src = pathFunc(x, y, z)
-		function onLoad() {
-			map.requestRedraw()
-		}
-		img.onload = () => {
-			if ('createImageBitmap' in window) {
-				// trying no decode image in parallel thread,
-				// if failed (beacuse of CORS for example) tryimg to show image anyway
-				createImageBitmap(img).then(onLoad, onLoad)
-			} else {
-				onLoad()
+		const tile = /**@type {AnyTile}*/ ({
+			img: null,
+			x,
+			y,
+			z,
+			appearAt: 0,
+			// writing here last iter (instead of 0), so if tile load will abort/fail,
+			// this tile won't be the "oldest" one in the cache and won't be quickly removed
+			lastDrawIter: drawIter,
+		})
+		const path = pathFunc(x, y, z)
+		if (path !== null) {
+			const img = new Image()
+			img.src = path
+			function onLoad() {
+				tile.img = img
+				map.requestRedraw()
+			}
+			img.onload = () => {
+				if ('createImageBitmap' in window) {
+					// trying no decode image in parallel thread,
+					// if failed (beacuse of CORS for example) tryimg to show image anyway
+					createImageBitmap(img).then(onLoad, onLoad)
+				} else {
+					onLoad()
+				}
 			}
 		}
 		return tile
@@ -94,17 +120,17 @@ export function SmoothTileContainer(tileW, pathFunc) {
 		)
 	}
 
-	/** @param {Tile} tile */
+	/** @param {AnyTile} tile */
 	function getTileOpacity(tile) {
 		return (performance.now() - tile.appearAt) / 150
 	}
 
-	/** @param {Tile} tile */
+	/** @param {AnyTile} tile */
 	function tileDrawnRecently(tile) {
 		return tile.lastDrawIter >= drawIter - 1
 	}
 
-	/** @param {Tile} tile */
+	/** @param {AnyTile} tile */
 	function tileWasOutsideOnCurLevel(tile) {
 		const [iFrom, jFrom, iCount, jCount, level] = prevTileRegion
 		const { x, y, z } = tile
@@ -113,7 +139,7 @@ export function SmoothTileContainer(tileW, pathFunc) {
 
 	/**
 	 * @param {import('./map').LocMap} map
-	 * @param {Tile} tile
+	 * @param {ReadyTile} tile
 	 * @param {boolean} withOpacity
 	 * @param {number} sx
 	 * @param {number} sy
@@ -177,7 +203,7 @@ export function SmoothTileContainer(tileW, pathFunc) {
 
 	/**
 	 * @param {import('./map').LocMap} map
-	 * @param {Tile} tile
+	 * @param {AnyTile} tile
 	 * @param {number} x
 	 * @param {number} y
 	 * @param {number} scale
@@ -190,9 +216,10 @@ export function SmoothTileContainer(tileW, pathFunc) {
 	function tryDrawTileObj(map, tile, x, y, scale, i, j, level, useOpacity) {
 		if (!isLoaded(tile)) return false
 		const dlevel = tile.z - level
-		const dzoom = Math.pow(2, dlevel)
+		const dzoom = 2 ** dlevel
 		const di = tile.x - i * dzoom
 		const dj = tile.y - j * dzoom
+		const natW = tile.img.naturalWidth
 
 		let sx, sy, sw, dw
 		if (dlevel >= 0) {
@@ -202,12 +229,12 @@ export function SmoothTileContainer(tileW, pathFunc) {
 			y += dj * dw
 			sx = 0
 			sy = 0
-			sw = tileW
+			sw = natW
 		} else {
-			sw = tileW * dzoom
-			sx = -di * tileW
-			sy = -dj * tileW
-			if (sx < 0 || sy < 0 || sx >= tileW || sy >= tileW) return false
+			sw = natW * dzoom
+			sx = -di * natW
+			sy = -dj * natW
+			if (sx < 0 || sy < 0 || sx >= natW || sy >= natW) return false
 			dw = tileW * scale
 		}
 
@@ -239,7 +266,8 @@ export function SmoothTileContainer(tileW, pathFunc) {
 			let upperTileDrawn = false
 			if (!canFillByQuaters) {
 				// drawing upper tiles parts
-				for (let l = level - 1; l >= 0; l--) {
+				const topLevel = Math.max(level - 5, Math.log2(map.getZoomRange()[0] / tileW))
+				for (let l = level - 1; l >= topLevel; l--) {
 					const sub = level - l
 					upperTileDrawn = tryDrawTile(map, x,y,scale, i,j,level, i>>sub,j>>sub,level-sub, false, false) //prettier-ignore
 					if (upperTileDrawn) break
@@ -248,7 +276,7 @@ export function SmoothTileContainer(tileW, pathFunc) {
 
 			let lowerTilesDrawn = false
 			if (!upperTileDrawn) {
-				drawTilePlaceholder(map, x, y, scale)
+				tilePlaceholderDrawFunc?.(map, x, y, tileW, scale)
 				if (canFillByQuaters) {
 					// drawing lower tiles as 2x2
 					for (let di = 0; di <= 1; di++)
@@ -268,21 +296,6 @@ export function SmoothTileContainer(tileW, pathFunc) {
 		}
 
 		tryDrawTile(map, x, y, scale, i, j, level, i, j, level, shouldLoad, true)
-	}
-
-	/**
-	 * @param {import('./map').LocMap} map
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} scale
-	 */
-	function drawTilePlaceholder(map, x, y, scale) {
-		const rc = map.get2dContext()
-		if (rc === null) return
-		const w = tileW * scale
-		const margin = 1.5
-		rc.strokeStyle = '#eee'
-		rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2)
 	}
 
 	/**
@@ -335,7 +348,7 @@ export function SmoothTileContainer(tileW, pathFunc) {
 			cache.forEach((tile, key) => {
 				if (tile.lastDrawIter === oldestIter) {
 					cache.delete(key)
-					lastDrawnTiles.delete(tile)
+					lastDrawnTiles.delete(/**@type {ReadyTile}*/ (tile))
 				}
 			})
 		}
@@ -346,9 +359,25 @@ export function SmoothTileContainer(tileW, pathFunc) {
 	this.getTileWidth = () => tileW
 
 	this.clearCache = () => {
-		cache.forEach(x => (x.img.src = ''))
+		cache.forEach(x => x.img && (x.img.src = ''))
 		cache.clear()
 		lastDrawnTiles.clear()
 		lastDrawnUnderLevelTilesArr.length = 0
 	}
+}
+
+/**
+ * @param {import('./map').LocMap} map
+ * @param {number} x
+ * @param {number} y
+ * @param {number} tileW
+ * @param {number} scale
+ */
+export function drawRectTilePlaceholder(map, x, y, tileW, scale) {
+	const rc = map.get2dContext()
+	if (rc === null) return
+	const w = tileW * scale
+	const margin = 1.5
+	rc.strokeStyle = '#8883'
+	rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2)
 }

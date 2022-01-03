@@ -10,6 +10,7 @@ import {
 	oneOf,
 	appendCredit,
 	controlHintKeyName,
+	drawRectTilePlaceholder,
 } from '../../src'
 
 document.documentElement.style.height = '100%'
@@ -40,6 +41,7 @@ const map = new LocMap(mapWrap, ProjectionMercator)
 const tileContainer = new SmoothTileContainer(
 	256,
 	(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+	drawRectTilePlaceholder,
 )
 map.register(new TileLayer(tileContainer))
 let controlLayer = new ControlLayer()
