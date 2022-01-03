@@ -84,26 +84,36 @@ export default async function (commandOptions) {
 
 export async function getSizesTable() {
 	const baseSizes = await getSizes(`
-import { LocMap, SmoothTileContainer, TileLayer, ProjectionMercator } from '${mapSrcDir}'
+import { LocMap, SmoothTileContainer, TileLayer, ProjectionMercator, loadTileImage } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
-	\`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
+const tileContainer = new SmoothTileContainer(256, loadTileImage((x, y, z) =>
+	\`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`))
 map.register(new TileLayer(tileContainer))`)
 
 	const regularSizes = await getSizes(`
-import { LocMap, ControlLayer, ControlHintLayer, SmoothTileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
+import { LocMap, ControlLayer, ControlHintLayer, SmoothTileContainer,
+	TileLayer, ProjectionMercator, loadTileImage, clampEarthTiles } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
-	\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
+const tileContainer = new SmoothTileContainer(
+	256,
+	clampEarthTiles(loadTileImage((x, y, z) =>
+		\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)),
+	drawRectTilePlaceholder,
+)
 map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())
 appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
 
 	const fullSizes = await getSizes(`
-import { LocMap, ControlLayer, controlHintKeyName, ControlHintLayer, SmoothTileContainer, TileLayer, ProjectionMercator, LocationLayer, URLLayer } from '${mapSrcDir}'
+import { LocMap, ControlLayer, controlHintKeyName, ControlHintLayer, SmoothTileContainer,
+	TileLayer, ProjectionMercator, LocationLayer, URLLayer, loadTileImage, clampEarthTiles } from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
-	\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)
+const tileContainer = new SmoothTileContainer(
+	256,
+	clampEarthTiles(loadTileImage((x, y, z) =>
+		\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)),
+	drawRectTilePlaceholder,
+)
 map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())
 map.register(new ControlHintLayer(\`hold \${controlHintKeyName()} to zoom\`, 'use two fingers to drag'))

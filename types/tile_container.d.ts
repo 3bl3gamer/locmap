@@ -2,27 +2,29 @@
  * Loads, caches and draws tiles with transitions. To be used with {@linkcode TileLayer}.
  * @class
  * @param {number} tileW tile display size
- * @param {(x:number, y:number, z:number) => string|null} pathFunc tile path func, for example:
+ * @param {TileImgLoadFunc} tileLoadFunc tile path func, for example:
  *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
  *
  *   May return `null` to skip tile loading.
- * @param {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} [tilePlaceholderDrawFunc]
- *   draws placeholder when tile is not ready or has failed to load (for example, {@linkcode drawRectTilePlaceholder})
+ * @param {TilePlaceholderDrawFunc} [tilePlaceholderDrawFunc]
+ *   draws placeholder when tile is not ready or has failed to load
+ *   (for example, {@linkcode drawRectTilePlaceholder})
  */
-export function SmoothTileContainer(tileW: number, pathFunc: (x: number, y: number, z: number) => string | null, tilePlaceholderDrawFunc?: ((map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number) => unknown) | undefined): void;
+export function SmoothTileContainer(tileW: number, tileLoadFunc: TileImgLoadFunc, tilePlaceholderDrawFunc?: TilePlaceholderDrawFunc | undefined): void;
 export class SmoothTileContainer {
     /**
      * Loads, caches and draws tiles with transitions. To be used with {@linkcode TileLayer}.
      * @class
      * @param {number} tileW tile display size
-     * @param {(x:number, y:number, z:number) => string|null} pathFunc tile path func, for example:
+     * @param {TileImgLoadFunc} tileLoadFunc tile path func, for example:
      *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
      *
      *   May return `null` to skip tile loading.
-     * @param {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} [tilePlaceholderDrawFunc]
-     *   draws placeholder when tile is not ready or has failed to load (for example, {@linkcode drawRectTilePlaceholder})
+     * @param {TilePlaceholderDrawFunc} [tilePlaceholderDrawFunc]
+     *   draws placeholder when tile is not ready or has failed to load
+     *   (for example, {@linkcode drawRectTilePlaceholder})
      */
-    constructor(tileW: number, pathFunc: (x: number, y: number, z: number) => string | null, tilePlaceholderDrawFunc?: ((map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number) => unknown) | undefined);
+    constructor(tileW: number, tileLoadFunc: TileImgLoadFunc, tilePlaceholderDrawFunc?: TilePlaceholderDrawFunc | undefined);
     /**
      * @param {import('./map').LocMap} map
      * @param {number} xShift
@@ -40,6 +42,16 @@ export class SmoothTileContainer {
     clearCache: () => void;
 }
 /**
+ * @param {TilePathFunc} pathFunc
+ * @returns {TileImgLoadFunc}
+ */
+export function loadTileImage(pathFunc: TilePathFunc): TileImgLoadFunc;
+/**
+ * @param {TileImgLoadFunc} tileFunc
+ * @returns {TileImgLoadFunc}
+ */
+export function clampEarthTiles(tileFunc: TileImgLoadFunc): TileImgLoadFunc;
+/**
  * @param {import('./map').LocMap} map
  * @param {number} x
  * @param {number} y
@@ -47,7 +59,7 @@ export class SmoothTileContainer {
  * @param {number} scale
  */
 export function drawRectTilePlaceholder(map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number): void;
-export type Tile<T extends HTMLImageElement | null> = {
+export type Tile<T> = {
     img: T;
     x: number;
     y: number;
@@ -58,3 +70,6 @@ export type Tile<T extends HTMLImageElement | null> = {
 export type LoadingTile = Tile<null>;
 export type ReadyTile = Tile<HTMLImageElement>;
 export type AnyTile = Tile<HTMLImageElement | null>;
+export type TileImgLoadFunc = (x: number, y: number, z: number, onLoad: (img: HTMLImageElement) => unknown) => unknown;
+export type TilePathFunc = (x: number, y: number, z: number) => string;
+export type TilePlaceholderDrawFunc = (map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number) => unknown;

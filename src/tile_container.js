@@ -1,10 +1,14 @@
 /**
- * @template {HTMLImageElement|null} T
+ * @template T
  * @typedef {{img:T, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile
  */
 /** @typedef {Tile<null>} LoadingTile */
 /** @typedef {Tile<HTMLImageElement>} ReadyTile */
 /** @typedef {Tile<HTMLImageElement|null>} AnyTile */
+
+/** @typedef {(x:number, y:number, z:number, onLoad:(img:HTMLImageElement) => unknown) => unknown} TileImgLoadFunc */
+/** @typedef {(x:number, y:number, z:number) => string} TilePathFunc */
+/** @typedef {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} TilePlaceholderDrawFunc */
 
 /**
  * @param {AnyTile} tile
@@ -28,14 +32,15 @@ function getTileKey(x, y, z) {
  * Loads, caches and draws tiles with transitions. To be used with {@linkcode TileLayer}.
  * @class
  * @param {number} tileW tile display size
- * @param {(x:number, y:number, z:number) => string|null} pathFunc tile path func, for example:
+ * @param {TileImgLoadFunc} tileLoadFunc tile path func, for example:
  *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
  *
  *   May return `null` to skip tile loading.
- * @param {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} [tilePlaceholderDrawFunc]
- *   draws placeholder when tile is not ready or has failed to load (for example, {@linkcode drawRectTilePlaceholder})
+ * @param {TilePlaceholderDrawFunc} [tilePlaceholderDrawFunc]
+ *   draws placeholder when tile is not ready or has failed to load
+ *   (for example, {@linkcode drawRectTilePlaceholder})
  */
-export function SmoothTileContainer(tileW, pathFunc, tilePlaceholderDrawFunc) {
+export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc) {
 	const cache = /** @type {Map<string,AnyTile>} */ (new Map())
 
 	let lastDrawnTiles = /**@type {Set<ReadyTile>}*/ (new Set())
@@ -64,24 +69,10 @@ export function SmoothTileContainer(tileW, pathFunc, tilePlaceholderDrawFunc) {
 			// this tile won't be the "oldest" one in the cache and won't be quickly removed
 			lastDrawIter: drawIter,
 		})
-		const path = pathFunc(x, y, z)
-		if (path !== null) {
-			const img = new Image()
-			img.src = path
-			function onLoad() {
-				tile.img = img
-				map.requestRedraw()
-			}
-			img.onload = () => {
-				if ('createImageBitmap' in window) {
-					// trying no decode image in parallel thread,
-					// if failed (beacuse of CORS for example) tryimg to show image anyway
-					createImageBitmap(img).then(onLoad, onLoad)
-				} else {
-					onLoad()
-				}
-			}
-		}
+		tileLoadFunc(x, y, z, img => {
+			tile.img = img
+			map.requestRedraw()
+		})
 		return tile
 	}
 
@@ -266,7 +257,7 @@ export function SmoothTileContainer(tileW, pathFunc, tilePlaceholderDrawFunc) {
 			let upperTileDrawn = false
 			if (!canFillByQuaters) {
 				// drawing upper tiles parts
-				const topLevel = Math.max(level - 5, Math.log2(map.getZoomRange()[0] / tileW))
+				const topLevel = Math.max(level - 5, Math.log2(map.getZoomRange()[0] / tileW) - 1)
 				for (let l = level - 1; l >= topLevel; l--) {
 					const sub = level - l
 					upperTileDrawn = tryDrawTile(map, x,y,scale, i,j,level, i>>sub,j>>sub,level-sub, false, false) //prettier-ignore
@@ -363,6 +354,39 @@ export function SmoothTileContainer(tileW, pathFunc, tilePlaceholderDrawFunc) {
 		cache.clear()
 		lastDrawnTiles.clear()
 		lastDrawnUnderLevelTilesArr.length = 0
+	}
+}
+
+/**
+ * @param {TilePathFunc} pathFunc
+ * @returns {TileImgLoadFunc}
+ */
+export function loadTileImage(pathFunc) {
+	return (x, y, z, onLoad) => {
+		const img = new Image()
+		img.src = pathFunc(x, y, z)
+		const onImgLoad = () => onLoad(img)
+		img.onload = () => {
+			if ('createImageBitmap' in window) {
+				// trying no decode image in parallel thread,
+				// if failed (beacuse of CORS for example) tryimg to show image anyway
+				createImageBitmap(img).then(onImgLoad, onImgLoad) //TODO
+			} else {
+				onImgLoad()
+			}
+		}
+	}
+}
+
+/**
+ * @param {TileImgLoadFunc} tileFunc
+ * @returns {TileImgLoadFunc}
+ */
+export function clampEarthTiles(tileFunc) {
+	return (x, y, z, onLoad) => {
+		const w = 2 ** z
+		if (z < 0 || x < 0 || x >= w || y < 0 || y >= w) return
+		tileFunc(x, y, z, onLoad)
 	}
 }
 

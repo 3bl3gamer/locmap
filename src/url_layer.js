@@ -5,7 +5,7 @@ function applyHashLocation(map) {
 	const lat = parseFloat(t[1])
 	const level = parseFloat(t[2])
 	if (isNaN(lon) || isNaN(lat) || isNaN(level)) return
-	map.updateLocation(lon, lat, level)
+	map.updateLocation(lon, lat, 2 ** level)
 }
 
 /**
@@ -20,7 +20,7 @@ export function URLLayer() {
 		updateTimeout = -1
 		const lon = map.getLon().toFixed(9)
 		const lat = map.getLat().toFixed(9)
-		const z = (Math.log(map.getZoom()) / Math.LN2).toFixed(4)
+		const z = Math.log2(map.getZoom()).toFixed(4)
 		history.replaceState({}, '', `#${lon}/${lat}/${z}`)
 	}
 

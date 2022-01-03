@@ -11,6 +11,8 @@ import {
 	appendCredit,
 	controlHintKeyName,
 	drawRectTilePlaceholder,
+	clampEarthTiles,
+	loadTileImage,
 } from '../../src'
 
 document.documentElement.style.height = '100%'
@@ -40,7 +42,11 @@ document.body.appendChild(footer)
 const map = new LocMap(mapWrap, ProjectionMercator)
 const tileContainer = new SmoothTileContainer(
 	256,
-	(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+	clampEarthTiles(
+		loadTileImage(
+			(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+		),
+	),
 	drawRectTilePlaceholder,
 )
 map.register(new TileLayer(tileContainer))
