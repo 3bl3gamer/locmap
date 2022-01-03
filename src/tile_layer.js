@@ -1,5 +1,3 @@
-import { floor } from './utils'
-
 /**
  * @typedef {object} TileContainer
  * @prop {() => unknown} clearCache
@@ -51,17 +49,17 @@ export function TileLayer(tileContainer) {
 		const tileGridSize = 2 ** level
 		const scale = map.getZoom() / tileW / tileGridSize
 		const blockSize = tileW * scale
-		const mapXShift = map.getViewBoxXShift()
-		const mapYShift = map.getViewBoxYShift()
+		const [mapXShift, mapYShift] = map.getViewBoxShift()
+		const [mapViewWidth, mapViewheight] = map.getViewBoxSize()
 
-		const iFrom = floor(mapXShift / blockSize)
+		const iFrom = Math.floor(mapXShift / blockSize)
 		const xShift = -mapXShift + iFrom * blockSize
 
-		const jFrom = floor(mapYShift / blockSize)
+		const jFrom = Math.floor(mapYShift / blockSize)
 		const yShift = -mapYShift + jFrom * blockSize
 
-		const iCount = (((map.getViewBoxWidth() - xShift) / blockSize) | 0) + 1
-		const jCount = (((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1
+		const iCount = (((mapViewWidth - xShift) / blockSize) | 0) + 1
+		const jCount = (((mapViewheight - yShift) / blockSize) | 0) + 1
 
 		tileContainer.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles)
 	}

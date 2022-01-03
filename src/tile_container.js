@@ -323,8 +323,9 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 	 * @param {boolean} shouldLoad
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
+		const [mapViewWidth, mapViewheight] = map.getViewBoxSize()
 		// view size in tiles
-		const tileViewSize = ((map.getViewBoxWidth() * map.getViewBoxHeight()) / tileW / tileW) | 0
+		const tileViewSize = ((mapViewWidth * mapViewheight) / tileW / tileW) | 0
 
 		// refilling recent tiles array
 		lastDrawnUnderLevelTilesArr.length = 0

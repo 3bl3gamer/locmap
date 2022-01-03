@@ -52,20 +52,23 @@ export function LocMap(wrap, conv) {
 	this.getLon = () => lon
 	this.getLat = () => lat
 	this.getZoom = () => zoom
-	/** Map left edge offset from the view center (in pixels) */
-	this.getXShift = () => xShift
-	/** Map top edge offset from the view center (in pixels) */
-	this.getYShift = () => yShift
-	/** Returns current projection config */
 	this.getProjConv = () => conv
-	/** Map left edge offset from the view left edge (in pixels) */
-	this.getViewBoxXShift = () => xShift - curWidth / 2
-	/** Map top edge offset from the view top edge (in pixels) */
-	this.getViewBoxYShift = () => yShift - curHeight / 2
-	/** Map view width */
-	this.getViewBoxWidth = () => curWidth
-	/** Map view height */
-	this.getViewBoxHeight = () => curHeight
+	/**
+	 * Map top-left edge offset from the view center (in pixels)
+	 * @returns {[x:number, y:number]}
+	 */
+	this.getShift = () => [xShift, yShift]
+	/** Returns current projection config */
+	/**
+	 * Map top-left edge offset from the view top-left edge (in pixels)
+	 * @returns {[x:number, y:number]}
+	 */
+	this.getViewBoxShift = () => [xShift - curWidth / 2, yShift - curHeight / 2]
+	/**
+	 * Map view size
+	 * @returns {[x:number, y:number]}
+	 */
+	this.getViewBoxSize = () => [curHeight, curWidth]
 
 	/**
 	 * Returns min and max zoom

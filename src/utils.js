@@ -33,4 +33,11 @@ export function appendCredit(wrap, html, style = CREDIT_BOTTOM_RIGHT) {
 	wrap.appendChild(elem)
 }
 
-export const floor = Math.floor
+/**
+ * @param {number} a
+ * @param {number} b
+ * @param {number} x
+ */
+export function clamp(a, b, x) {
+	return Math.max(a, Math.min(b, x))
+}

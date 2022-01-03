@@ -1,4 +1,5 @@
 import { controlDouble } from 'js-control'
+import { clamp } from './utils'
 
 /**
  * @param {number} x1
@@ -171,7 +172,7 @@ export function PointerControlLayer(opts) {
 	function setCorrectedSinglePos(x, y, stamp) {
 		const timeDelta = stamp - lastDoubleTouch_stamp
 		const duration = 150
-		const k = Math.max(0, Math.min(1, ((duration - timeDelta) / duration) * 2))
+		const k = clamp(0, 1, ((duration - timeDelta) / duration) * 2)
 		mouseX = (lastDoubleTouch_cx + lastDoubleTouch_dx * timeDelta) * k + x * (1 - k)
 		mouseY = (lastDoubleTouch_cy + lastDoubleTouch_dy * timeDelta) * k + y * (1 - k)
 	}

@@ -12,6 +12,11 @@ export function oneOf<T>(...args: T[]): T;
  * @param {Partial<CSSStyleDeclaration>} [style=CREDIT_BOTTOM_RIGHT] custom style object
  */
 export function appendCredit(wrap: HTMLElement, html: string, style?: Partial<CSSStyleDeclaration> | undefined): void;
+/**
+ * @param {number} a
+ * @param {number} b
+ * @param {number} x
+ */
+export function clamp(a: number, b: number, x: number): number;
 /** @type {Partial<CSSStyleDeclaration>} */
 export const CREDIT_BOTTOM_RIGHT: Partial<CSSStyleDeclaration>;
-export const floor: (x: number) => number;

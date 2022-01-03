@@ -72,20 +72,23 @@ export class LocMap {
     getLon: () => number;
     getLat: () => number;
     getZoom: () => number;
-    /** Map left edge offset from the view center (in pixels) */
-    getXShift: () => number;
-    /** Map top edge offset from the view center (in pixels) */
-    getYShift: () => number;
-    /** Returns current projection config */
     getProjConv: () => ProjectionConverter;
-    /** Map left edge offset from the view left edge (in pixels) */
-    getViewBoxXShift: () => number;
-    /** Map top edge offset from the view top edge (in pixels) */
-    getViewBoxYShift: () => number;
-    /** Map view width */
-    getViewBoxWidth: () => number;
-    /** Map view height */
-    getViewBoxHeight: () => number;
+    /**
+     * Map top-left edge offset from the view center (in pixels)
+     * @returns {[x:number, y:number]}
+     */
+    getShift: () => [x: number, y: number];
+    /** Returns current projection config */
+    /**
+     * Map top-left edge offset from the view top-left edge (in pixels)
+     * @returns {[x:number, y:number]}
+     */
+    getViewBoxShift: () => [x: number, y: number];
+    /**
+     * Map view size
+     * @returns {[x:number, y:number]}
+     */
+    getViewBoxSize: () => [x: number, y: number];
     /**
      * Returns min and max zoom
      * @returns {[min:number, max:number]}
