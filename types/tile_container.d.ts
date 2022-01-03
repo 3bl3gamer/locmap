@@ -59,17 +59,18 @@ export function clampEarthTiles(tileFunc: TileImgLoadFunc): TileImgLoadFunc;
  * @param {number} scale
  */
 export function drawRectTilePlaceholder(map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number): void;
-export type Tile<T> = {
-    img: T;
+export type Tile<TImg, TReady> = {
+    img: TImg;
+    isReady: TReady;
     x: number;
     y: number;
     z: number;
     appearAt: number;
     lastDrawIter: number;
 };
-export type LoadingTile = Tile<null>;
-export type ReadyTile = Tile<HTMLImageElement>;
-export type AnyTile = Tile<HTMLImageElement | null>;
-export type TileImgLoadFunc = (x: number, y: number, z: number, onLoad: (img: HTMLImageElement) => unknown) => unknown;
+export type BlankTile = Tile<null, false>;
+export type ImgTile = Tile<HTMLImageElement | ImageBitmap, true>;
+export type AnyTile = BlankTile | ImgTile;
+export type TileImgLoadFunc = (x: number, y: number, z: number, onUpdate: (img: HTMLImageElement | ImageBitmap, isReady: boolean) => unknown) => unknown;
 export type TilePathFunc = (x: number, y: number, z: number) => string;
 export type TilePlaceholderDrawFunc = (map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number) => unknown;
