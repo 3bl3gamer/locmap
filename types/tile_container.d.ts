@@ -45,7 +45,7 @@ export class SmoothTileContainer {
  */
 export function loadTileImage(pathFunc: TilePathFunc): TileImgLoadFunc;
 /**
- * Wripper for {@linkcode TilePathFunc} (like {@linkcode loadTileImage}).
+ * Wrapper for {@linkcode TilePathFunc} (like {@linkcode loadTileImage}).
  * Skips loading tiles outside of the map square (1x1 on level 0, 2x2 on level 1, etc.).
  *
  * @param {TileImgLoadFunc} tileFunc

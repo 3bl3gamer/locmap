@@ -13,9 +13,11 @@ import {
 	TSConfigReader,
 	TypeOperatorType,
 	UnionType,
+	TupleType,
+	NamedTupleMember,
 } from 'typedoc'
 import { fileURLToPath } from 'url'
-import { getSizesTable } from './sizes.js'
+import { getRegularExampleSource, getSizesTable } from './sizes.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -55,6 +57,8 @@ const skipProperties = [
 		props: ['draw', 'clearCache', 'getTileWidth'],
 	},
 ]
+
+const GITHUB_ANCHOR_PREFIX = 'user-content-'
 
 /** @param {import('typedoc/dist/lib/models/reflections/parameter.js').ParameterReflection[]} parameters */
 function parametersToString(parameters) {
@@ -117,7 +121,16 @@ function typeToString(type, children = []) {
 	if (type instanceof UnionType) return type.types.map(x => typeToString(x, children)).join(' | ')
 	if (type instanceof LiteralType)
 		return typeof type.value === 'string' ? `'${type.value}'` : type.value + ''
-	throw new Error('unexpected type: ' + type)
+	if (type instanceof TupleType)
+		return '[' + type.elements.map(x => typeToString(x, children)).join(', ') + ']'
+	if (type instanceof NamedTupleMember)
+		return type.name + (type.isOptional ? '?' : '') + ':' + typeToString(type.element, children)
+	throw new Error(`unexpected type: ${type} (${type.constructor.name})`)
+}
+
+/** @param {string} text */
+function escapeTypeForMarkdown(text) {
+	return text.replace(/([<>\[\]])/g, '\\$1')
 }
 
 /**
@@ -126,7 +139,7 @@ function typeToString(type, children = []) {
  */
 function getParamDoc(item) {
 	const children = []
-	const typeStr = typeToString(item.type, children).replace(/([<>])/g, '\\$1')
+	const typeStr = escapeTypeForMarkdown(typeToString(item.type, children))
 	return [
 		`\`${item.name}\` *${typeStr}*` +
 			`${getFullComment(' — ', item.comment)}` +
@@ -151,6 +164,11 @@ function getFullComment(prefix, comment) {
 		text = prefix + text
 		if (!text.endsWith('.')) text += '.'
 	}
+	text = text.replace(/{\s*@link(code)?\s+(\w+)\s*}/g, (_, code, name) => {
+		let label = name
+		if (code) label = '`' + label + '`'
+		return `[${label}](#${GITHUB_ANCHOR_PREFIX}${name.toLocaleLowerCase()})`
+	})
 	return text
 }
 
@@ -176,13 +194,13 @@ function describeFunc(write, func) {
 	if (signatures.length > 1) throw new Error('multiple signatures for: ' + func.name)
 	const signature = signatures[0]
 
-	const callname = isConstructor
-		? signature.name // "new ClassName"
-		: func.name // "funcName"
+	const name = isConstructor ? func.parent?.name + '' : func.name
+	const callname = (isConstructor ? 'new ' : '') + name
 
 	const src = signature.sources?.[0]
 
 	const headingLevel = isConstructor ? '###' : '####'
+	const headingAnchor = `<a name="${GITHUB_ANCHOR_PREFIX}${name.toLocaleLowerCase()}"></a>`
 	const headingName = `${callname}(${(signature.parameters ?? [])
 		.map((x, i) => {
 			const isFirst = i === 0
@@ -190,12 +208,12 @@ function describeFunc(write, func) {
 			if (x.flags.isRest) name = '...' + name
 			if (!isFirst) name = ', ' + name
 			// if (x.defaultValue) name += '=' + x.defaultValue
-			if (x.flags.isOptional) name = `[${name}]`
+			if (x.flags.isOptional) name = `\\[${name}\\]`
 			return name
 		})
 		.join('')})`
 
-	write(`${headingLevel} ${headingName}${src ? ` [src](${src.url})` : ''}\n\n`)
+	write(`${headingLevel} ${headingAnchor}${headingName}${src ? ` [src](${src.url})` : ''}\n\n`)
 	let hasContent = false
 
 	for (const param of signature.typeParameters ?? []) {
@@ -213,7 +231,7 @@ function describeFunc(write, func) {
 
 	if (!isConstructor) {
 		const children = []
-		const retType = typeToString(signature.type, children)
+		const retType = escapeTypeForMarkdown(typeToString(signature.type, children))
 		if (retType !== 'void') {
 			write(` * Returns: *${retType}*\n`)
 			for (const child of children) write(`   * ${getParamDoc(child)[0]}\n`)
@@ -332,11 +350,13 @@ function reaplceReadmeBlock(text, prefix, separator, chunk) {
 
 	const sizeInfo = await getSizesTable()
 	const regularBundleSize = (sizeInfo.sizes.regular.minGz / 1024).toFixed(1)
+	const regularSource = '```js\n' + getRegularExampleSource('locmap') + '\n```'
 
 	console.log('updating README...')
 
 	let content = project.readme ?? ''
 	content = reaplceReadmeBlock(content, 'REGULAR_SIZE', '', regularBundleSize)
+	content = reaplceReadmeBlock(content, 'REGULAR_EXAMPLE', '\n', regularSource)
 	content = reaplceReadmeBlock(content, 'SIZE_TABLE', '\n', sizeInfo.table)
 	content = reaplceReadmeBlock(content, 'API_BLOCK', '\n', apiDoc)
 	content = content.trimEnd() + '\n'

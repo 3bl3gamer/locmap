@@ -50,7 +50,7 @@ export default async function (commandOptions) {
 	}, {
 		input: '${indexFPath}',
 		output: { format: 'es', file: '${bundleMinFPath}' },
-		plugins: [resolve(), terser()],
+		plugins: [resolve(), terser({ecma:2022, module:true, compress:{passes:2, unsafe_arrows:true}})],
 	}]
 }`,
 		)
@@ -58,7 +58,7 @@ export default async function (commandOptions) {
 		await new Promise((resolve, reject) => {
 			const child = spawn(
 				`${baseDir}/node_modules/.bin/rollup`, //
-				['--config', configFPath, '--silent'],
+				['--config', configFPath],
 				{ stdio: 'inherit' },
 			)
 			child.on('exit', (code, signal) => {
@@ -82,6 +82,29 @@ export default async function (commandOptions) {
 	})
 }
 
+/** @param {string} mapSrcDir */
+export function getRegularExampleSource(mapSrcDir) {
+	return `
+import {
+    LocMap, ControlLayer, SmoothTileContainer, TileLayer, ProjectionMercator,
+    appendCredit, loadTileImage, clampEarthTiles, drawRectTilePlaceholder,
+} from '${mapSrcDir}'
+
+const map = new LocMap(document.body, ProjectionMercator)
+const tileContainer = new SmoothTileContainer(
+    256,
+    clampEarthTiles(loadTileImage((x, y, z) =>
+        \`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)),
+    drawRectTilePlaceholder,
+)
+map.register(new TileLayer(tileContainer))
+map.register(new ControlLayer())
+appendCredit(document.body,
+    '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
+window.onresize = map.resize
+`.trim()
+}
+
 export async function getSizesTable() {
 	const baseSizes = await getSizes(`
 import { LocMap, SmoothTileContainer, TileLayer, ProjectionMercator, loadTileImage } from '${mapSrcDir}'
@@ -90,23 +113,14 @@ const tileContainer = new SmoothTileContainer(256, loadTileImage((x, y, z) =>
 	\`http://a.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`))
 map.register(new TileLayer(tileContainer))`)
 
-	const regularSizes = await getSizes(`
-import { LocMap, ControlLayer, ControlHintLayer, SmoothTileContainer,
-	TileLayer, ProjectionMercator, loadTileImage, clampEarthTiles } from '${mapSrcDir}'
-const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new SmoothTileContainer(
-	256,
-	clampEarthTiles(loadTileImage((x, y, z) =>
-		\`http://\${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/\${z}/\${x}/\${y}.png\`)),
-	drawRectTilePlaceholder,
-)
-map.register(new TileLayer(tileContainer))
-map.register(new ControlLayer())
-appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
+	const regularSizes = await getSizes(getRegularExampleSource(mapSrcDir))
 
 	const fullSizes = await getSizes(`
-import { LocMap, ControlLayer, controlHintKeyName, ControlHintLayer, SmoothTileContainer,
-	TileLayer, ProjectionMercator, LocationLayer, URLLayer, loadTileImage, clampEarthTiles } from '${mapSrcDir}'
+import {
+	LocMap, ControlLayer, controlHintKeyName, ControlHintLayer, SmoothTileContainer,
+	TileLayer, ProjectionMercator, LocationLayer, URLLayer,
+	loadTileImage, clampEarthTiles, drawRectTilePlaceholder,
+} from '${mapSrcDir}'
 const map = new LocMap(document.body, ProjectionMercator)
 const tileContainer = new SmoothTileContainer(
 	256,
@@ -119,7 +133,8 @@ map.register(new ControlLayer())
 map.register(new ControlHintLayer(\`hold \${controlHintKeyName()} to zoom\`, 'use two fingers to drag'))
 map.register(new LocationLayer())
 map.register(new URLLayer())
-appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')`)
+appendCredit(document.body, '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
+window.onresize = map.resize`)
 
 	let text = ''
 	text += `|         | bundled | minfied | min+gz |     |\n`

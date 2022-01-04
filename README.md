@@ -1,27 +1,34 @@
 Simple modular canvas-based tile map engine.
 
-[]()<!-- REGULAR_SIZE_START --><!-- Generated, do not edit! -->5.7<!-- REGULAR_SIZE_END -->
+[]()<!-- REGULAR_SIZE_START --><!-- Generated, do not edit! -->5.9<!-- REGULAR_SIZE_END -->
 KiB after min+gizp, [more](#size).
 
 [Example](https://3bl3gamer.github.io/locmap/examples/)
 
 ## Usage
 
+<!-- REGULAR_EXAMPLE_START -->
+<!-- Generated, do not edit! -->
 ```js
 import {
-    LocMap, ControlLayer, ControlHintLayer, LocationLayer, URLLayer,
-    SmoothTileContainer, TileLayer, ProjectionMercator, oneOf, appendCredit,
+    LocMap, ControlLayer, SmoothTileContainer, TileLayer, ProjectionMercator,
+    appendCredit, loadTileImage, clampEarthTiles, drawRectTilePlaceholder,
 } from 'locmap'
 
 const map = new LocMap(document.body, ProjectionMercator)
-const tileContainer = new SmoothTileContainer(256, (x, y, z) =>
-    `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`)
+const tileContainer = new SmoothTileContainer(
+    256,
+    clampEarthTiles(loadTileImage((x, y, z) =>
+        `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`)),
+    drawRectTilePlaceholder,
+)
 map.register(new TileLayer(tileContainer))
 map.register(new ControlLayer())
 appendCredit(document.body,
     '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
 window.onresize = map.resize
 ```
+<!-- REGULAR_EXAMPLE_END -->
 
 ## Size
 
@@ -29,46 +36,46 @@ window.onresize = map.resize
 <!-- Generated, do not edit! -->
 |         | bundled | minfied | min+gz |     |
 |:--------|--------:|--------:|-------:|:----|
-| base    |   25.5  |    6.6  |   2.9  | KiB |
-| regular |   47.8  |   13.6  |   5.7  | KiB |
-| full    |   54.0  |   16.2  |   6.6  | KiB |
+| base    |   27.6  |    6.4  |   2.9  | KiB |
+| regular |   51.9  |   13.9  |   5.9  | KiB |
+| full    |   57.3  |   16.2  |   6.7  | KiB |
 <!-- SIZE_TABLE_END -->
 
 <!-- API_BLOCK_START -->
 <!-- Generated, do not edit! -->
 ## API
 
-### new LocMap(wrap, conv) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L39)
+### <a name="user-content-locmap"></a>new LocMap(wrap, conv) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L39)
 
  * `wrap` *HTMLElement* — main map element.
  * `conv` *ProjectionConverter* — projection config, usually `ProjectionMercator`.
 
 Core map engine. Manages location, layers and some transition animations.
 
-#### register(layer) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L121)
+#### <a name="user-content-register"></a>register(layer) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L138)
 
  * `layer` *MapLayer*
 
-#### unregister(layer) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L127)
+#### <a name="user-content-unregister"></a>unregister(layer) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L144)
 
  * `layer` *MapLayer*
 
-#### updateLocation(lon_, lat_, level_) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L140)
+#### <a name="user-content-updatelocation"></a>updateLocation(lon_, lat_, zoom_) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L157)
 
  * `lon_` *number*
  * `lat_` *number*
- * `level_` *number*
+ * `zoom_` *number*
 
-Instantly update map location and zoom level.
+Instantly update map location and zoom.
 
-#### move(dx, dy) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L319)
+#### <a name="user-content-move"></a>move(dx, dy) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L334)
 
  * `dx` *number*
  * `dy` *number*
 
 Move map view by `(dx,dy)` pixels.
 
-#### moveSmooth(dx, dy, stamp) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L337)
+#### <a name="user-content-movesmooth"></a>moveSmooth(dx, dy, stamp) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L352)
 
  * `dx` *number*
  * `dy` *number*
@@ -78,7 +85,7 @@ Move map view smoothly by `(dx,dy)` pixels.
 Motion resembles `ease-out`, i.e. slowing down to the end.
 Useful for handling move buttons.
 
-#### applyMoveInertia(dx, dy, stamp) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L353)
+#### <a name="user-content-applymoveinertia"></a>applyMoveInertia(dx, dy, stamp) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L368)
 
  * `dx` *number* — horizontal speed in px/ms.
  * `dy` *number* — vertival speed in px/ms.
@@ -87,7 +94,7 @@ Useful for handling move buttons.
 Start moving map view with a certain speed and a gradual slowdown.
 Useful for mouse/touch handling.
 
-#### zoom(x, y, delta) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L281)
+#### <a name="user-content-zoom"></a>zoom(x, y, delta) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L297)
 
  * `x` *number*
  * `y` *number*
@@ -97,7 +104,7 @@ Zoom in `delta` times using `(x,y)` as a reference point
 (stays in place when zooming, usually mouse position).
 `0 < zoom < 1` for zoom out.
 
-#### zoomSmooth(x, y, delta, stamp) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L304)
+#### <a name="user-content-zoomsmooth"></a>zoomSmooth(x, y, delta, stamp) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L319)
 
  * `x` *number*
  * `y` *number*
@@ -108,7 +115,7 @@ Zoom in `delta` times smoothly using `(x,y)` as a reference point.
 Motion resembles `ease-out`, i.e. slowing down to the end.
 Useful for handling zoom buttons and mouse wheel.
 
-#### applyZoomInertia(x, y, delta, stamp) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L368)
+#### <a name="user-content-applyzoominertia"></a>applyZoomInertia(x, y, delta, stamp) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L383)
 
  * `x` *number*
  * `y` *number*
@@ -118,136 +125,128 @@ Useful for handling zoom buttons and mouse wheel.
 Start zoomin map with a certain speed and a gradual slowdown around `(x,y)` reference point.
 Useful for multitouch pinch-zoom handling.
 
-#### emit(name, params) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L392)
+#### <a name="user-content-emit"></a>emit(name, params) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L407)
 
  * `K` *string*
  * `name` *K*
- * `params` *K extends keyof MapEventHandlersMap ? MapEventHandlersMap[K] : unknown*
+ * `params` *K extends keyof MapEventHandlersMap ? MapEventHandlersMap\[K\] : unknown*
 
-Emits a built-in (see {@linkcode MapEventHandlersMap}) or custom event with some arguments.
+Emits a built-in (see [`MapEventHandlersMap`](#user-content-mapeventhandlersmap)) or custom event with some arguments.
 
-#### get2dContext() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L83)
+#### <a name="user-content-get2dcontext"></a>get2dContext() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L100)
 
  * Returns: *null | CanvasRenderingContext2D*
 
-#### getCanvas() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L82)
+#### <a name="user-content-getcanvas"></a>getCanvas() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L99)
 
  * Returns: *HTMLCanvasElement*
 
-#### getLat() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L53)
+#### <a name="user-content-getlat"></a>getLat() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L53)
 
  * Returns: *number*
 
-#### getLevel() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L54)
+#### <a name="user-content-getlon"></a>getLon() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L52)
 
  * Returns: *number*
 
-#### getLon() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L52)
-
- * Returns: *number*
-
-#### getProjConv() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L60)
+#### <a name="user-content-getprojconv"></a>getProjConv() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L55)
 
  * Returns: *ProjectionConverter*
 
-Returns current projection config.
+#### <a name="user-content-getshift"></a>getShift() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L60)
 
-#### getViewBoxHeight() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L69)
+ * Returns: *\[x:number, y:number\]*
 
- * Returns: *number*
+Map top-left edge offset from the view center (in pixels).
 
-Map view height.
+#### <a name="user-content-getviewboxshift"></a>getViewBoxShift() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L66)
 
-#### getViewBoxWidth() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L67)
+ * Returns: *\[x:number, y:number\]*
 
- * Returns: *number*
+Map top-left edge offset from the view top-left edge (in pixels).
 
-Map view width.
+#### <a name="user-content-getviewboxsize"></a>getViewBoxSize() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L71)
 
-#### getViewBoxXShift() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L63)
+ * Returns: *\[x:number, y:number\]*
 
- * Returns: *number*
+Map view size.
 
-Map left edge offset from the view left edge (in pixels).
-
-#### getViewBoxYShift() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L65)
-
- * Returns: *number*
-
-Map top edge offset from the view top edge (in pixels).
-
-#### getWrap() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L81)
+#### <a name="user-content-getwrap"></a>getWrap() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L98)
 
  * Returns: *HTMLElement*
 
-#### getXShift() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L56)
+#### <a name="user-content-getzoom"></a>getZoom() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L54)
 
  * Returns: *number*
 
-Map left edge offset from the view center (in pixels).
+#### <a name="user-content-getzoomrange"></a>getZoomRange() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L77)
 
-#### getYShift() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L58)
+ * Returns: *\[min:number, max:number\]*
 
- * Returns: *number*
+Returns min and max zoom.
 
-Map top edge offset from the view center (in pixels).
-
-#### getZoom() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L61)
-
- * Returns: *number*
-
-#### lat2y(lat) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L99)
+#### <a name="user-content-lat2y"></a>lat2y(lat) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L116)
 
  * `lat` *number*
  * Returns: *number*
 
-#### lon2x(lon) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L95)
+#### <a name="user-content-lon2x"></a>lon2x(lon) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L112)
 
  * `lon` *number*
  * Returns: *number*
 
-#### meters2pixCoef(lat) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L103)
+#### <a name="user-content-meters2pixcoef"></a>meters2pixCoef(lat) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L120)
 
  * `lat` *number*
  * Returns: *number*
 
-#### requestRedraw() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L239)
+#### <a name="user-content-requestredraw"></a>requestRedraw() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L255)
 
 Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame.
 
-#### resize() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L261)
+#### <a name="user-content-resize"></a>resize() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L277)
 
 Should be called after map element (`wrap`) resize to update internal state and canvas.
 
-#### x2lon(x) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L107)
+#### <a name="user-content-setzoomrange"></a>setZoomRange(min, max) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L83)
+
+ * `min` *number*
+ * `max` *number*
+
+Sets min and max zoom. Does not clamp current zoom.
+
+#### <a name="user-content-x2lon"></a>x2lon(x) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L124)
 
  * `x` *number*
  * Returns: *number*
 
-#### y2lat(y) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/map.js#L111)
+#### <a name="user-content-y2lat"></a>y2lat(y) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/map.js#L128)
 
  * `y` *number*
  * Returns: *number*
 
 
-### new TileLayer(tileContainer) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/tile_layer.js#L17)
+### <a name="user-content-tilelayer"></a>new TileLayer(tileContainer) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/tile_layer.js#L17)
 
- * `tileContainer` *TileContainer* — tile cache/drawer, for example {@linkcode SmoothTileContainer}.
+ * `tileContainer` *TileContainer* — tile cache/drawer, for example [`SmoothTileContainer`](#user-content-smoothtilecontainer).
 
-Loads and draw tiles using {@linkcode TileContainer}.
+Loads and draw tiles using [`TileContainer`](#user-content-tilecontainer).
 Disables tile load while zooming.
 
 
-### new SmoothTileContainer(tileW, pathFunc) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/tile_container.js#L25)
+### <a name="user-content-smoothtilecontainer"></a>new SmoothTileContainer(tileW, tileLoadFunc\[, tilePlaceholderDrawFunc\]) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/tile_container.js#L64)
 
  * `tileW` *number* — tile display size.
- * `pathFunc` *(x:number, y:number, z:number) =\> string* — tile path func, for example:
-  ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``.
+ * `tileLoadFunc` *TileImgLoadFunc* — loads tile image,
+  see [`loadTileImage`](#user-content-loadtileimage) and maybe [`clampEarthTiles`](#user-content-clampearthtiles).
+ * `tilePlaceholderDrawFunc` *TilePlaceholderDrawFunc* — 
+  draws placeholder when tile is not ready or has failed to load
+  (for example, [`drawRectTilePlaceholder`](#user-content-drawrecttileplaceholder)).
 
-Loads, caches draws tiles. To be used with {@linkcode TileLayer}.
+Loads, caches and draws tiles with transitions. To be used with [`TileLayer`](#user-content-tilelayer).
 
 
-### new ControlLayer([mouseOpts][, kbdOpts]) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/control_layer.js#L391)
+### <a name="user-content-controllayer"></a>new ControlLayer(\[mouseOpts\]\[, kbdOpts\]) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/control_layer.js#L392)
 
  * `mouseOpts` *{doNotInterfere?}*
    * `doNotInterfere` *boolean*
@@ -255,10 +254,10 @@ Loads, caches draws tiles. To be used with {@linkcode TileLayer}.
    * `outlineFix` *undefined | null | string*
 
 Layer for pointer (mouse/touch) and keyboard input.
-See {@linkcode PointerControlLayer} and {@linkcode KeyboardControlLayer}.
+See [`PointerControlLayer`](#user-content-pointercontrollayer) and [`KeyboardControlLayer`](#user-content-keyboardcontrollayer).
 
 
-### new PointerControlLayer([opts]) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/control_layer.js#L79)
+### <a name="user-content-pointercontrollayer"></a>new PointerControlLayer(\[opts\]) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/control_layer.js#L80)
 
  * `opts` *{doNotInterfere?}*
    * `doNotInterfere` *boolean*
@@ -266,7 +265,7 @@ See {@linkcode PointerControlLayer} and {@linkcode KeyboardControlLayer}.
 Enables mouse and touch input: gragging, wheel- and pinch-zooming.
 
 
-### new KeyboardControlLayer([opts]) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/control_layer.js#L331)
+### <a name="user-content-keyboardcontrollayer"></a>new KeyboardControlLayer(\[opts\]) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/control_layer.js#L332)
 
  * `opts` *{outlineFix}*
    * `outlineFix` *undefined | null | string* — value that will be set to `map.getWrap().style.outline`.
@@ -277,7 +276,7 @@ Enables keyboard controls: arrows for movement, +/- for zoom. Shift can be used 
 Makes map element focusable.
 
 
-### new ControlHintLayer(controlText, twoFingersText[, opts]) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/control_layer.js#L415)
+### <a name="user-content-controlhintlayer"></a>new ControlHintLayer(controlText, twoFingersText\[, opts\]) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/control_layer.js#L416)
 
  * `controlText` *string* — text to be shown when `Ctrl`/`⌘` key is required to zoom.
   For example: `` `hold ${controlHintKeyName()} to zoom` ``.
@@ -286,16 +285,16 @@ Makes map element focusable.
  * `opts` *{styles}* — text box style overrides.
    * `styles` *Record\<string, string\>*
 
-Should be used with `doNotInterfere:true` set on {@linkcode MouseControlLayer} or {@linkcode ControlLayer}.
+Should be used with `doNotInterfere:true` set on [`MouseControlLayer`](#user-content-mousecontrollayer) or [`ControlLayer`](#user-content-controllayer).
 Shows a text over the map when user input is ignored.
 
 
-### new LocationLayer() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/location_layer.js#L21)
+### <a name="user-content-locationlayer"></a>new LocationLayer() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/location_layer.js#L21)
 
 Watches current geolocation, draws a cross or a circle (depending on accuracy) on the map.
 
 
-### new URLLayer() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/url_layer.js#L16)
+### <a name="user-content-urllayer"></a>new URLLayer() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/url_layer.js#L16)
 
 Saves current map position to `location.hash` as `#{lon}/{lat}/{level}`.
 Updates map position on `location.hash` change.
@@ -303,7 +302,7 @@ Updates map position on `location.hash` change.
 
 ### Functions
 
-#### appendCredit(wrap, html[, style]) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/utils.js#L28)
+#### <a name="user-content-appendcredit"></a>appendCredit(wrap, html\[, style\]) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/utils.js#L28)
 
  * `wrap` *HTMLElement* — parent element, usually `map.getWrap()`.
  * `html` *string* — content as HTML (won't be escaped).
@@ -311,17 +310,43 @@ Updates map position on `location.hash` change.
 
 Shortcut for appending some HTML at the right-bottom of another element.
 
-#### controlHintKeyName() [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/control_layer.js#L478)
+#### <a name="user-content-clampearthtiles"></a>clampEarthTiles(tileFunc) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/tile_container.js#L420)
+
+ * `tileFunc` *TileImgLoadFunc*
+ * Returns: *TileImgLoadFunc*
+
+Wrapper for [`TilePathFunc`](#user-content-tilepathfunc) (like [`loadTileImage`](#user-content-loadtileimage)).
+Skips loading tiles outside of the map square (1x1 on level 0, 2x2 on level 1, etc.).
+
+#### <a name="user-content-controlhintkeyname"></a>controlHintKeyName() [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/control_layer.js#L479)
 
  * Returns: *'⌘' | 'Ctrl'*
 
 Returns `⌘` on MacOS/iOS and `Ctrl` on other platforms.
-Useful for {@linkcode ControlHintLayer}.
+Useful for [`ControlHintLayer`](#user-content-controlhintlayer).
 
-#### oneOf(...args) [src](https://github.com/3bl3gamer/locmap/blob/f3dbca0/src/utils.js#L7)
+#### <a name="user-content-drawrecttileplaceholder"></a>drawRectTilePlaceholder(map, x, y, tileW, scale) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/tile_container.js#L437)
+
+ * `map` *LocMap*
+ * `x` *number*
+ * `y` *number*
+ * `tileW` *number*
+ * `scale` *number*
+
+Draws simple tile placeholder (semi-transparent square).
+
+#### <a name="user-content-loadtileimage"></a>loadTileImage(pathFunc) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/tile_container.js#L391)
+
+ * `pathFunc` *TilePathFunc* — tile path func, for example:
+  ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``.
+ * Returns: *TileImgLoadFunc*
+
+Loads image for [`TileContainer`](#user-content-tilecontainer)s ([`SmoothTileContainer`](#user-content-smoothtilecontainer) for example).
+
+#### <a name="user-content-oneof"></a>oneOf(...args) [src](https://github.com/3bl3gamer/locmap/blob/c2efe8a/src/utils.js#L7)
 
  * `T` *any*
- * `args` *T[]*
+ * `args` *T\[\]*
  * Returns: *T*
 
 Chooses and returns random argument.
