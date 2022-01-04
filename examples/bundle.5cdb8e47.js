@@ -46,30 +46,47 @@
 
 		let lon = 0;
 		let lat = 0;
-		let level = 8;
+		let zoom = 256;
 		let xShift = 0;
 		let yShift = 0;
-		let zoom = Math.pow(2, level);
-		let minZoom = 256;
+		let minZoom = 0;
+		let maxZoom = Infinity;
 
 		this.getLon = () => lon;
 		this.getLat = () => lat;
-		this.getLevel = () => level;
-		/** Map left edge offset from the view center (in pixels) */
-		this.getXShift = () => xShift;
-		/** Map top edge offset from the view center (in pixels) */
-		this.getYShift = () => yShift;
-		/** Returns current projection config */
-		this.getProjConv = () => conv;
 		this.getZoom = () => zoom;
-		/** Map left edge offset from the view left edge (in pixels) */
-		this.getViewBoxXShift = () => xShift - curWidth / 2;
-		/** Map top edge offset from the view top edge (in pixels) */
-		this.getViewBoxYShift = () => yShift - curHeight / 2;
-		/** Map view width */
-		this.getViewBoxWidth = () => curWidth;
-		/** Map view height */
-		this.getViewBoxHeight = () => curHeight;
+		this.getProjConv = () => conv;
+		/**
+		 * Map top-left edge offset from the view center (in pixels)
+		 * @returns {[x:number, y:number]}
+		 */
+		this.getShift = () => [xShift, yShift];
+		/** Returns current projection config */
+		/**
+		 * Map top-left edge offset from the view top-left edge (in pixels)
+		 * @returns {[x:number, y:number]}
+		 */
+		this.getViewBoxShift = () => [xShift - curWidth / 2, yShift - curHeight / 2];
+		/**
+		 * Map view size
+		 * @returns {[x:number, y:number]}
+		 */
+		this.getViewBoxSize = () => [curWidth, curHeight];
+
+		/**
+		 * Returns min and max zoom
+		 * @returns {[min:number, max:number]}
+		 */
+		this.getZoomRange = () => [minZoom, maxZoom];
+		/**
+		 * Sets min and max zoom. Does not clamp current zoom.
+		 * @param {number} min
+		 * @param {number} max
+		 */
+		this.setZoomRange = (min, max) => {
+			minZoom = min;
+			maxZoom = max;
+		};
 
 		const canvas = document.createElement('canvas');
 		canvas.className = 'locmap-canvas';
@@ -135,16 +152,15 @@
 		};
 
 		/**
-		 * Instantly update map location and zoom level.
+		 * Instantly update map location and zoom.
 		 * @param {number} lon_
 		 * @param {number} lat_
-		 * @param {number} level_
+		 * @param {number} zoom_
 		 */
-		this.updateLocation = (lon_, lat_, level_) => {
+		this.updateLocation = (lon_, lat_, zoom_) => {
 			lon = lon_;
 			lat = lat_;
-			level = Math.round(level_);
-			zoom = Math.pow(2, level_);
+			zoom = zoom_;
 			pos_map2screen();
 			updateLayers();
 			requestRedraw();
@@ -283,8 +299,7 @@
 		 */
 		this.zoom = (x, y, delta) => {
 			const prevZoom = zoom;
-			zoom = Math.max(minZoom, zoom * delta);
-			level = Math.round(Math.log2(zoom) - 0.1); //extra level shift, or on half-level zoom text on tiles may be too small
+			zoom = mutlClamp(minZoom, maxZoom, zoom, delta);
 			const actualDelta = zoom / prevZoom;
 			xShift += (-x + curWidth / 2 - xShift) * (1 - actualDelta);
 			yShift += (-y + curHeight / 2 - yShift) * (1 - actualDelta);
@@ -306,7 +321,7 @@
 		 */
 		this.zoomSmooth = (x, y, delta, stamp) => {
 			if (zoomAnimationMode !== ZOOM_ANIM_MODE_SMOOTH) zoomAnimationDelta = 1;
-			zoomAnimationDelta = Math.max(minZoom / zoom, zoomAnimationDelta * delta);
+			zoomAnimationDelta = mutlClamp(minZoom / zoom, maxZoom / zoom, zoomAnimationDelta, delta);
 			zoomAnimationX = x;
 			zoomAnimationY = y;
 			zoomAnimationPrevStamp = stamp;
@@ -400,8 +415,10 @@
 			}
 		};
 
-		lon = 0;
-		lat = 0;
+		//-----------
+		// setup
+		//-----------
+
 		pos_map2screen();
 	}
 
@@ -431,6 +448,19 @@
 			return zoom / 40075000 / Math.abs(Math.cos(lat))
 		},
 	};
+
+	/**
+	 * @param {number} min
+	 * @param {number} max
+	 * @param {number} val
+	 * @param {number} delta
+	 */
+	function mutlClamp(min, max, val, delta) {
+		val *= delta;
+		if (delta < 1 && val < min) val = min;
+		if (delta > 1 && val > max) val = max;
+		return val
+	}
 
 	/** @typedef {[EventTarget, string, (e:any) => void]} Evt */
 
@@ -736,6 +766,50 @@
 	}
 
 	/**
+	 * Chooses and returns random argument.
+	 * @template T
+	 * @param  {...T} args
+	 * @returns {T}
+	 */
+	function oneOf(...args) {
+		return args[(args.length * Math.random()) | 0]
+	}
+
+	/** @type {Partial<CSSStyleDeclaration>} */
+	const CREDIT_BOTTOM_RIGHT = {
+		position: 'absolute',
+		right: '0',
+		bottom: '0',
+		font: '11px/1.5 sans-serif',
+		background: 'white',
+		padding: '0 5px',
+		opacity: '0.75',
+	};
+
+	/**
+	 * Shortcut for appending some HTML at the right-bottom of another element.
+	 * @param {HTMLElement} wrap parent element, usually `map.getWrap()`
+	 * @param {string} html content as HTML (won't be escaped)
+	 * @param {Partial<CSSStyleDeclaration>} [style=CREDIT_BOTTOM_RIGHT] custom style object
+	 */
+	function appendCredit(wrap, html, style = CREDIT_BOTTOM_RIGHT) {
+		const elem = document.createElement('div');
+		elem.className = 'map-credit';
+		elem.innerHTML = html;
+		for (const name in style) elem.style[name] = /**@type {string}*/ (style[name]);
+		wrap.appendChild(elem);
+	}
+
+	/**
+	 * @param {number} a
+	 * @param {number} b
+	 * @param {number} x
+	 */
+	function clamp(a, b, x) {
+		return Math.max(a, Math.min(b, x))
+	}
+
+	/**
 	 * @param {number} x1
 	 * @param {number} y1
 	 * @param {number} x2
@@ -906,7 +980,7 @@
 		function setCorrectedSinglePos(x, y, stamp) {
 			const timeDelta = stamp - lastDoubleTouch_stamp;
 			const duration = 150;
-			const k = Math.max(0, Math.min(1, ((duration - timeDelta) / duration) * 2));
+			const k = clamp(0, 1, ((duration - timeDelta) / duration) * 2);
 			mouseX = (lastDoubleTouch_cx + lastDoubleTouch_dx * timeDelta) * k + x * (1 - k);
 			mouseY = (lastDoubleTouch_cy + lastDoubleTouch_dy * timeDelta) * k + y * (1 - k);
 		}
@@ -1214,11 +1288,47 @@
 		return navigator.userAgent.includes('Macintosh') ? '⌘' : 'Ctrl'
 	}
 
-	/** @typedef {{img:HTMLImageElement, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile */
+	/**
+	 * When `img` is `null`, the tile is considerend blank and not drawn (may be replaced by placeholder).
+	 *
+	 * When `img` is not `null`, the tile is considerend ready to be drawn.
+	 *
+	 * @template {HTMLImageElement|ImageBitmap|null} TImg
+	 * @typedef {{img:TImg, clear:(()=>unknown)|null, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile
+	 */
 
-	/** @param {Tile} tile */
-	function isLoaded(tile) {
-		return tile.img.complete && tile.img.naturalWidth > 0
+	/** @typedef {Tile<null>} BlankTile */
+	/** @typedef {Tile<HTMLImageElement>|Tile<ImageBitmap>} ImgTile */
+	/** @typedef {BlankTile|ImgTile} AnyTile */
+
+	/** @typedef {(img:HTMLImageElement|ImageBitmap|null, clear:()=>unknown) => unknown} TileUpdateFunc */
+	/** @typedef {(x:number, y:number, z:number, onUpdate:TileUpdateFunc) => unknown} TileImgLoadFunc */
+	/** @typedef {(x:number, y:number, z:number) => string} TilePathFunc */
+	/** @typedef {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} TilePlaceholderDrawFunc */
+
+	/**
+	 * @param {HTMLImageElement|ImageBitmap} img
+	 * @returns {img is HTMLImageElement}
+	 */
+	function isHtmlImg(img) {
+		return 'src' in img
+	}
+
+	/** @param {HTMLImageElement} img */
+	function clearHtmlImg(img) {
+		img.src = '';
+	}
+	/** @param {ImageBitmap} img */
+	function clearBitmapImg(img) {
+		img.close();
+	}
+
+	/**
+	 * @param {HTMLImageElement|ImageBitmap} img
+	 * @returns {number}
+	 */
+	function getImgWidth(img) {
+		return isHtmlImg(img) ? img.naturalWidth : img.width
 	}
 
 	/**
@@ -1232,17 +1342,20 @@
 	}
 
 	/**
-	 * Loads, caches draws tiles. To be used with {@linkcode TileLayer}.
+	 * Loads, caches and draws tiles with transitions. To be used with {@linkcode TileLayer}.
 	 * @class
 	 * @param {number} tileW tile display size
-	 * @param {(x:number, y:number, z:number) => string} pathFunc tile path func, for example:
-	 *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
+	 * @param {TileImgLoadFunc} tileLoadFunc loads tile image,
+	 *   see {@linkcode loadTileImage} and maybe {@linkcode clampEarthTiles}
+	 * @param {TilePlaceholderDrawFunc} [tilePlaceholderDrawFunc]
+	 *   draws placeholder when tile is not ready or has failed to load
+	 *   (for example, {@linkcode drawRectTilePlaceholder})
 	 */
-	function SmoothTileContainer(tileW, pathFunc) {
-		const cache = /** @type {Map<string,Tile>} */ (new Map());
+	function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc) {
+		const cache = /** @type {Map<string,AnyTile>} */ (new Map());
 
-		let lastDrawnTiles = /**@type {Set<Tile>}*/ (new Set());
-		const lastDrawnUnderLevelTilesArr = /**@type {Tile[]}*/ ([]);
+		let lastDrawnTiles = /**@type {Set<ImgTile>}*/ (new Set());
+		const lastDrawnUnderLevelTilesArr = /**@type {ImgTile[]}*/ ([]);
 
 		/** @type {[iFrom:number, jFrom:number, iCount:number, jCount:number, level:number]} */
 		let prevTileRegion = [0, 0, 0, 0, 0];
@@ -1254,24 +1367,25 @@
 		 * @param {number} x
 		 * @param {number} y
 		 * @param {number} z
-		 * @returns {Tile}
+		 * @returns {AnyTile}
 		 */
 		function makeTile(map, x, y, z) {
-			const img = new Image();
-			const tile = { img, x, y, z, appearAt: 0, lastDrawIter: 0 };
-			img.src = pathFunc(x, y, z);
-			function onLoad() {
+			const tile = /** @type {AnyTile} */ ({
+				img: null,
+				clear: null,
+				x,
+				y,
+				z,
+				appearAt: 0,
+				// writing here last iter (instead of 0), so if tile load will abort/fail,
+				// this tile won't be the "oldest" one in the cache and won't be quickly removed
+				lastDrawIter: drawIter,
+			});
+			tileLoadFunc(x, y, z, (img, clear) => {
+				tile.img = img;
+				tile.clear = clear;
 				map.requestRedraw();
-			}
-			img.onload = () => {
-				if ('createImageBitmap' in window) {
-					// trying no decode image in parallel thread,
-					// if failed (beacuse of CORS for example) tryimg to show image anyway
-					createImageBitmap(img).then(onLoad, onLoad);
-				} else {
-					onLoad();
-				}
-			};
+			});
 			return tile
 		}
 
@@ -1303,24 +1417,24 @@
 			const tile = findTile(map, i, j, level, false);
 			return (
 				!!tile &&
-				isLoaded(tile) &&
+				!!tile.img &&
 				// if tile not drawn recently, it will became transparent on next draw
 				tileDrawnRecently(tile) &&
 				(!useOpacity || getTileOpacity(tile) >= 1)
 			)
 		}
 
-		/** @param {Tile} tile */
+		/** @param {AnyTile} tile */
 		function getTileOpacity(tile) {
 			return (performance.now() - tile.appearAt) / 150
 		}
 
-		/** @param {Tile} tile */
+		/** @param {AnyTile} tile */
 		function tileDrawnRecently(tile) {
 			return tile.lastDrawIter >= drawIter - 1
 		}
 
-		/** @param {Tile} tile */
+		/** @param {AnyTile} tile */
 		function tileWasOutsideOnCurLevel(tile) {
 			const [iFrom, jFrom, iCount, jCount, level] = prevTileRegion;
 			const { x, y, z } = tile;
@@ -1329,7 +1443,7 @@
 
 		/**
 		 * @param {import('./map').LocMap} map
-		 * @param {Tile} tile
+		 * @param {ImgTile} tile
 		 * @param {boolean} withOpacity
 		 * @param {number} sx
 		 * @param {number} sy
@@ -1393,7 +1507,7 @@
 
 		/**
 		 * @param {import('./map').LocMap} map
-		 * @param {Tile} tile
+		 * @param {AnyTile} tile
 		 * @param {number} x
 		 * @param {number} y
 		 * @param {number} scale
@@ -1404,11 +1518,12 @@
 		 * @returns {boolean}
 		 */
 		function tryDrawTileObj(map, tile, x, y, scale, i, j, level, useOpacity) {
-			if (!isLoaded(tile)) return false
+			if (!tile.img) return false
 			const dlevel = tile.z - level;
-			const dzoom = Math.pow(2, dlevel);
+			const dzoom = 2 ** dlevel;
 			const di = tile.x - i * dzoom;
 			const dj = tile.y - j * dzoom;
+			const imgW = getImgWidth(tile.img);
 
 			let sx, sy, sw, dw;
 			if (dlevel >= 0) {
@@ -1418,12 +1533,12 @@
 				y += dj * dw;
 				sx = 0;
 				sy = 0;
-				sw = tileW;
+				sw = imgW;
 			} else {
-				sw = tileW * dzoom;
-				sx = -di * tileW;
-				sy = -dj * tileW;
-				if (sx < 0 || sy < 0 || sx >= tileW || sy >= tileW) return false
+				sw = imgW * dzoom;
+				sx = -di * imgW;
+				sy = -dj * imgW;
+				if (sx < 0 || sy < 0 || sx >= imgW || sy >= imgW) return false
 				dw = tileW * scale;
 			}
 
@@ -1455,7 +1570,8 @@
 				let upperTileDrawn = false;
 				if (!canFillByQuaters) {
 					// drawing upper tiles parts
-					for (let l = level - 1; l >= 0; l--) {
+					const topLevel = Math.max(level - 5, Math.log2(map.getZoomRange()[0] / tileW) - 1);
+					for (let l = level - 1; l >= topLevel; l--) {
 						const sub = level - l;
 						upperTileDrawn = tryDrawTile(map, x,y,scale, i,j,level, i>>sub,j>>sub,level-sub, false, false); //prettier-ignore
 						if (upperTileDrawn) break
@@ -1464,7 +1580,7 @@
 
 				let lowerTilesDrawn = false;
 				if (!upperTileDrawn) {
-					drawTilePlaceholder(map, x, y, scale);
+					tilePlaceholderDrawFunc?.(map, x, y, tileW, scale);
 					if (canFillByQuaters) {
 						// drawing lower tiles as 2x2
 						for (let di = 0; di <= 1; di++)
@@ -1488,21 +1604,6 @@
 
 		/**
 		 * @param {import('./map').LocMap} map
-		 * @param {number} x
-		 * @param {number} y
-		 * @param {number} scale
-		 */
-		function drawTilePlaceholder(map, x, y, scale) {
-			const rc = map.get2dContext();
-			if (rc === null) return
-			const w = tileW * scale;
-			const margin = 1.5;
-			rc.strokeStyle = '#eee';
-			rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2);
-		}
-
-		/**
-		 * @param {import('./map').LocMap} map
 		 * @param {number} xShift
 		 * @param {number} yShift
 		 * @param {number} scale
@@ -1514,8 +1615,9 @@
 		 * @param {boolean} shouldLoad
 		 */
 		this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
+			const [mapViewWidth, mapViewheight] = map.getViewBoxSize();
 			// view size in tiles
-			const tileViewSize = ((map.getViewBoxWidth() * map.getViewBoxHeight()) / tileW / tileW) | 0;
+			const tileViewSize = ((mapViewWidth * mapViewheight) / tileW / tileW) | 0;
 
 			// refilling recent tiles array
 			lastDrawnUnderLevelTilesArr.length = 0;
@@ -1551,7 +1653,8 @@
 				cache.forEach((tile, key) => {
 					if (tile.lastDrawIter === oldestIter) {
 						cache.delete(key);
-						lastDrawnTiles.delete(tile);
+						lastDrawnTiles.delete(/**@type {ImgTile}*/ (tile));
+						tile.clear?.();
 					}
 				});
 			}
@@ -1562,11 +1665,72 @@
 		this.getTileWidth = () => tileW;
 
 		this.clearCache = () => {
-			cache.forEach(x => (x.img.src = ''));
+			cache.forEach(x => x.clear?.());
 			cache.clear();
 			lastDrawnTiles.clear();
 			lastDrawnUnderLevelTilesArr.length = 0;
 		};
+	}
+
+	/**
+	 * Loads image for {@linkcode TileContainer}s ({@linkcode SmoothTileContainer} for example).
+	 * @param {TilePathFunc} pathFunc tile path func, for example:
+	 *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
+	 * @returns {TileImgLoadFunc}
+	 */
+	function loadTileImage(pathFunc) {
+		return (x, y, z, onUpdate) => {
+			const img = new Image();
+			img.src = pathFunc(x, y, z);
+			const clearHtmlimg_ = () => clearHtmlImg(img);
+			img.onload = () => {
+				const createImageBitmap = window.createImageBitmap;
+				if (createImageBitmap) {
+					// trying no decode image in parallel thread,
+					// if failed (beacuse of CORS for example) tryimg to show image anyway
+					createImageBitmap(img).then(
+						x => onUpdate(x, () => clearBitmapImg(x)),
+						() => onUpdate(img, clearHtmlimg_),
+					);
+				} else {
+					onUpdate(img, clearHtmlimg_);
+				}
+			};
+			onUpdate(null, clearHtmlimg_);
+		}
+	}
+
+	/**
+	 * Wrapper for {@linkcode TilePathFunc} (like {@linkcode loadTileImage}).
+	 * Skips loading tiles outside of the map square (1x1 on level 0, 2x2 on level 1, etc.).
+	 *
+	 * @param {TileImgLoadFunc} tileFunc
+	 * @returns {TileImgLoadFunc}
+	 */
+	function clampEarthTiles(tileFunc) {
+		return (x, y, z, onUpdate) => {
+			const w = 2 ** z;
+			if (z < 0 || x < 0 || x >= w || y < 0 || y >= w) return
+			tileFunc(x, y, z, onUpdate);
+		}
+	}
+
+	/**
+	 * Draws simple tile placeholder (semi-transparent square).
+	 *
+	 * @param {import('./map').LocMap} map
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} tileW
+	 * @param {number} scale
+	 */
+	function drawRectTilePlaceholder(map, x, y, tileW, scale) {
+		const rc = map.get2dContext();
+		if (rc === null) return
+		const w = tileW * scale;
+		const margin = 1.5;
+		rc.strokeStyle = '#8883';
+		rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2);
 	}
 
 	/**
@@ -1586,9 +1750,6 @@
 	 * @param {TileContainer} tileContainer tile cache/drawer, for example {@linkcode SmoothTileContainer}
 	 */
 	function TileLayer(tileContainer) {
-		const levelDifference = -Math.log2(tileContainer.getTileWidth());
-		const zoomDifference = 1 / tileContainer.getTileWidth();
-
 		let shouldLoadTiles = true;
 		let lastZoomAt = 0;
 		let curZoomTotalDelta = 1;
@@ -1617,38 +1778,23 @@
 
 		/** @param {import('./map').LocMap} map */
 		this.redraw = map => {
-			const level = map.getLevel() + levelDifference;
-			const tileGridSize = 1 << level;
-			const scale = (map.getZoom() * zoomDifference) / tileGridSize;
-			const blockSize = tileContainer.getTileWidth() * scale;
-			const mapXShift = map.getViewBoxXShift();
-			const mapYShift = map.getViewBoxYShift();
+			const tileW = tileContainer.getTileWidth();
+			//extra level shift (not 0.5), or on half-level zoom text on tiles may be too small
+			const level = Math.floor(Math.log2(map.getZoom() / tileW) + 0.4);
+			const tileGridSize = 2 ** level;
+			const scale = map.getZoom() / tileW / tileGridSize;
+			const blockSize = tileW * scale;
+			const [mapXShift, mapYShift] = map.getViewBoxShift();
+			const [mapViewWidth, mapViewHeight] = map.getViewBoxSize();
 
-			let xShift, iFrom;
-			if (mapXShift > 0) {
-				xShift = -mapXShift % blockSize;
-				iFrom = (mapXShift / blockSize) | 0;
-			} else {
-				xShift = -mapXShift;
-				iFrom = 0;
-			}
-			let yShift, jFrom;
-			if (mapYShift > 0) {
-				yShift = -mapYShift % blockSize;
-				jFrom = (mapYShift / blockSize) | 0;
-			} else {
-				yShift = -mapYShift;
-				jFrom = 0;
-			}
+			const iFrom = Math.floor(mapXShift / blockSize);
+			const xShift = -mapXShift + iFrom * blockSize;
 
-			const iCount = Math.min(
-				tileGridSize - iFrom,
-				(((map.getViewBoxWidth() - xShift) / blockSize) | 0) + 1,
-			);
-			const jCount = Math.min(
-				tileGridSize - jFrom,
-				(((map.getViewBoxHeight() - yShift) / blockSize) | 0) + 1,
-			);
+			const jFrom = Math.floor(mapYShift / blockSize);
+			const yShift = -mapYShift + jFrom * blockSize;
+
+			const iCount = (((mapViewWidth - xShift) / blockSize) | 0) + 1;
+			const jCount = (((mapViewHeight - yShift) / blockSize) | 0) + 1;
 
 			tileContainer.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles);
 		};
@@ -1665,10 +1811,10 @@
 				// if zoomed enough
 				if (curZoomTotalDelta < 1 / 1.2 || curZoomTotalDelta > 1.2) {
 					// if fast enough
-					const isFast = timeDelta === 0 || Math.abs(Math.pow(delta, 1 / timeDelta) - 1) > 0.0005;
+					const isFast = timeDelta === 0 || Math.abs(delta ** (1 / timeDelta) - 1) > 0.0005;
 					if (isFast) {
 						// unpausing periodically in case of long slow zooming
-						if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80);
+						if (shouldLoadTiles || now - tileLoadPausedAt > 1000) pauseTileLoad(map, 80);
 					}
 				}
 			},
@@ -1682,7 +1828,7 @@
 		const lat = parseFloat(t[1]);
 		const level = parseFloat(t[2]);
 		if (isNaN(lon) || isNaN(lat) || isNaN(level)) return
-		map.updateLocation(lon, lat, level);
+		map.updateLocation(lon, lat, 2 ** level);
 	}
 
 	/**
@@ -1697,7 +1843,7 @@
 			updateTimeout = -1;
 			const lon = map.getLon().toFixed(9);
 			const lat = map.getLat().toFixed(9);
-			const z = (Math.log(map.getZoom()) / Math.LN2).toFixed(4);
+			const z = Math.log2(map.getZoom()).toFixed(4);
 			history.replaceState({}, '', `#${lon}/${lat}/${z}`);
 		}
 
@@ -1772,8 +1918,9 @@
 			const rc = map.get2dContext();
 			if (rc === null) return
 
-			const x = -map.getViewBoxXShift() + map.lon2x(lastLocation.longitude);
-			const y = -map.getViewBoxYShift() + map.lat2y(lastLocation.latitude);
+			const [mapXShift, mapYShift] = map.getViewBoxShift();
+			const x = -mapXShift + map.lon2x(lastLocation.longitude);
+			const y = -mapYShift + map.lat2y(lastLocation.latitude);
 
 			const lineW = 4;
 			const r = Math.max(lineW / 2, lastLocation.accuracy * map.meters2pixCoef(lastLocation.latitude));
@@ -1786,7 +1933,7 @@
 			rc.fill();
 			strokeOutlined(rc, lineW, 'white', lineW / 2, 'black');
 
-			const size = Math.min(map.getViewBoxWidth(), map.getViewBoxHeight());
+			const size = Math.min(...map.getViewBoxSize());
 			const crossSize = size / 50;
 			const innerCrossThresh = size / 4;
 			const outerCrossThresh = size / 100;
@@ -1819,41 +1966,6 @@
 		};
 	}
 
-	/**
-	 * Chooses and returns random argument.
-	 * @template T
-	 * @param  {...T} args
-	 * @returns {T}
-	 */
-	function oneOf(...args) {
-		return args[(args.length * Math.random()) | 0]
-	}
-
-	/** @type {Partial<CSSStyleDeclaration>} */
-	const CREDIT_BOTTOM_RIGHT = {
-		position: 'absolute',
-		right: '0',
-		bottom: '0',
-		font: '11px/1.5 sans-serif',
-		background: 'white',
-		padding: '0 5px',
-		opacity: '0.75',
-	};
-
-	/**
-	 * Shortcut for appending some HTML at the right-bottom of another element.
-	 * @param {HTMLElement} wrap parent element, usually `map.getWrap()`
-	 * @param {string} html content as HTML (won't be escaped)
-	 * @param {Partial<CSSStyleDeclaration>} [style=CREDIT_BOTTOM_RIGHT] custom style object
-	 */
-	function appendCredit(wrap, html, style = CREDIT_BOTTOM_RIGHT) {
-		const elem = document.createElement('div');
-		elem.className = 'map-credit';
-		elem.innerHTML = html;
-		for (const name in style) elem.style[name] = /**@type {string}*/ (style[name]);
-		wrap.appendChild(elem);
-	}
-
 	document.documentElement.style.height = '100%';
 	document.body.style.margin = '0';
 
@@ -1881,7 +1993,12 @@
 	const map = new LocMap(mapWrap, ProjectionMercator);
 	const tileContainer = new SmoothTileContainer(
 		256,
-		(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+		clampEarthTiles(
+			loadTileImage(
+				(x, y, z) => `https://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png`,
+			),
+		),
+		drawRectTilePlaceholder,
 	);
 	map.register(new TileLayer(tileContainer));
 	let controlLayer = new ControlLayer();
@@ -1922,4 +2039,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.b1ad64d8.js.map
+//# sourceMappingURL=bundle.5cdb8e47.js.map
