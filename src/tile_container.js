@@ -1,13 +1,18 @@
 /**
- * @template TImg
- * @template TReady
- * @typedef {{img:TImg, isReady:TReady, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile
+ * When `img` is `null`, the tile is considerend blank and not drawn (may be replaced by placeholder).
+ *
+ * When `img` is not `null`, the tile is considerend ready to be drawn.
+ *
+ * @template {HTMLImageElement|ImageBitmap|null} TImg
+ * @typedef {{img:TImg, clear:(()=>unknown)|null, x:number, y:number, z:number, appearAt:number, lastDrawIter:number}} Tile
  */
-/** @typedef {Tile<null, false>} BlankTile */
-/** @typedef {Tile<HTMLImageElement|ImageBitmap, true>} ImgTile */
+
+/** @typedef {Tile<null>} BlankTile */
+/** @typedef {Tile<HTMLImageElement>|Tile<ImageBitmap>} ImgTile */
 /** @typedef {BlankTile|ImgTile} AnyTile */
 
-/** @typedef {(x:number, y:number, z:number, onUpdate:(img:HTMLImageElement|ImageBitmap, isReady:boolean) => unknown) => unknown} TileImgLoadFunc */
+/** @typedef {(img:HTMLImageElement|ImageBitmap|null, clear:()=>unknown) => unknown} TileUpdateFunc */
+/** @typedef {(x:number, y:number, z:number, onUpdate:TileUpdateFunc) => unknown} TileImgLoadFunc */
 /** @typedef {(x:number, y:number, z:number) => string} TilePathFunc */
 /** @typedef {(map:import('./map').LocMap, x:number, y:number, tileW:number, scale:number) => unknown} TilePlaceholderDrawFunc */
 
@@ -19,14 +24,13 @@ function isHtmlImg(img) {
 	return 'src' in img
 }
 
-/**
- * @param {HTMLImageElement|ImageBitmap|null} img
- */
-function cancelImg(img) {
-	if (img) {
-		if (isHtmlImg(img)) img.src = ''
-		else img.close()
-	}
+/** @param {HTMLImageElement} img */
+function clearHtmlImg(img) {
+	img.src = ''
+}
+/** @param {ImageBitmap} img */
+function clearBitmapImg(img) {
+	img.close()
 }
 
 /**
@@ -51,10 +55,8 @@ function getTileKey(x, y, z) {
  * Loads, caches and draws tiles with transitions. To be used with {@linkcode TileLayer}.
  * @class
  * @param {number} tileW tile display size
- * @param {TileImgLoadFunc} tileLoadFunc tile path func, for example:
- *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
- *
- *   May return `null` to skip tile loading.
+ * @param {TileImgLoadFunc} tileLoadFunc loads tile image,
+ *   see {@linkcode loadTileImage} and maybe {@linkcode clampEarthTiles}
  * @param {TilePlaceholderDrawFunc} [tilePlaceholderDrawFunc]
  *   draws placeholder when tile is not ready or has failed to load
  *   (for example, {@linkcode drawRectTilePlaceholder})
@@ -80,7 +82,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 	function makeTile(map, x, y, z) {
 		const tile = /** @type {AnyTile} */ ({
 			img: null,
-			isReady: false,
+			clear: null,
 			x,
 			y,
 			z,
@@ -89,9 +91,9 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 			// this tile won't be the "oldest" one in the cache and won't be quickly removed
 			lastDrawIter: drawIter,
 		})
-		tileLoadFunc(x, y, z, (img, isReady) => {
+		tileLoadFunc(x, y, z, (img, clear) => {
 			tile.img = img
-			tile.isReady = isReady
+			tile.clear = clear
 			map.requestRedraw()
 		})
 		return tile
@@ -125,7 +127,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 		const tile = findTile(map, i, j, level, false)
 		return (
 			!!tile &&
-			tile.isReady &&
+			!!tile.img &&
 			// if tile not drawn recently, it will became transparent on next draw
 			tileDrawnRecently(tile) &&
 			(!useOpacity || getTileOpacity(tile) >= 1)
@@ -226,7 +228,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 	 * @returns {boolean}
 	 */
 	function tryDrawTileObj(map, tile, x, y, scale, i, j, level, useOpacity) {
-		if (!tile.isReady) return false
+		if (!tile.img) return false
 		const dlevel = tile.z - level
 		const dzoom = 2 ** dlevel
 		const di = tile.x - i * dzoom
@@ -362,7 +364,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 				if (tile.lastDrawIter === oldestIter) {
 					cache.delete(key)
 					lastDrawnTiles.delete(/**@type {ImgTile}*/ (tile))
-					cancelImg(tile.img)
+					tile.clear?.()
 				}
 			})
 		}
@@ -373,7 +375,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 	this.getTileWidth = () => tileW
 
 	this.clearCache = () => {
-		cache.forEach(x => cancelImg(x.img))
+		cache.forEach(x => x.clear?.())
 		cache.clear()
 		lastDrawnTiles.clear()
 		lastDrawnUnderLevelTilesArr.length = 0
@@ -381,28 +383,37 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 }
 
 /**
- * @param {TilePathFunc} pathFunc
+ * Loads image for {@linkcode TileContainer}s ({@linkcode SmoothTileContainer} for example).
+ * @param {TilePathFunc} pathFunc tile path func, for example:
+ *   ``(x, y, z) => `http://${oneOf('a', 'b', 'c')}.tile.openstreetmap.org/${z}/${x}/${y}.png` ``
  * @returns {TileImgLoadFunc}
  */
 export function loadTileImage(pathFunc) {
 	return (x, y, z, onUpdate) => {
 		const img = new Image()
 		img.src = pathFunc(x, y, z)
-		const onReady = img => onUpdate(img, true)
+		const clearHtmlimg_ = () => clearHtmlImg(img)
 		img.onload = () => {
-			if ('createImageBitmap' in window) {
+			const createImageBitmap = window.createImageBitmap
+			if (createImageBitmap) {
 				// trying no decode image in parallel thread,
 				// if failed (beacuse of CORS for example) tryimg to show image anyway
-				createImageBitmap(img).then(onReady, () => onReady(img))
+				createImageBitmap(img).then(
+					x => onUpdate(x, () => clearBitmapImg(x)),
+					() => onUpdate(img, clearHtmlimg_),
+				)
 			} else {
-				onReady(img)
+				onUpdate(img, clearHtmlimg_)
 			}
 		}
-		onUpdate(img, false)
+		onUpdate(null, clearHtmlimg_)
 	}
 }
 
 /**
+ * Wripper for {@linkcode TilePathFunc} (like {@linkcode loadTileImage}).
+ * Skips loading tiles outside of the map square (1x1 on level 0, 2x2 on level 1, etc.).
+ *
  * @param {TileImgLoadFunc} tileFunc
  * @returns {TileImgLoadFunc}
  */
@@ -415,6 +426,8 @@ export function clampEarthTiles(tileFunc) {
 }
 
 /**
+ * Draws simple tile placeholder (semi-transparent square).
+ *
  * @param {import('./map').LocMap} map
  * @param {number} x
  * @param {number} y

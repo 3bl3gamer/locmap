@@ -68,7 +68,7 @@ export function LocMap(wrap, conv) {
 	 * Map view size
 	 * @returns {[x:number, y:number]}
 	 */
-	this.getViewBoxSize = () => [curHeight, curWidth]
+	this.getViewBoxSize = () => [curWidth, curHeight]
 
 	/**
 	 * Returns min and max zoom

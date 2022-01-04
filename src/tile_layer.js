@@ -50,7 +50,7 @@ export function TileLayer(tileContainer) {
 		const scale = map.getZoom() / tileW / tileGridSize
 		const blockSize = tileW * scale
 		const [mapXShift, mapYShift] = map.getViewBoxShift()
-		const [mapViewWidth, mapViewheight] = map.getViewBoxSize()
+		const [mapViewWidth, mapViewHeight] = map.getViewBoxSize()
 
 		const iFrom = Math.floor(mapXShift / blockSize)
 		const xShift = -mapXShift + iFrom * blockSize
@@ -59,7 +59,7 @@ export function TileLayer(tileContainer) {
 		const yShift = -mapYShift + jFrom * blockSize
 
 		const iCount = (((mapViewWidth - xShift) / blockSize) | 0) + 1
-		const jCount = (((mapViewheight - yShift) / blockSize) | 0) + 1
+		const jCount = (((mapViewHeight - yShift) / blockSize) | 0) + 1
 
 		tileContainer.draw(map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoadTiles)
 	}
@@ -79,7 +79,7 @@ export function TileLayer(tileContainer) {
 				const isFast = timeDelta === 0 || Math.abs(delta ** (1 / timeDelta) - 1) > 0.0005
 				if (isFast) {
 					// unpausing periodically in case of long slow zooming
-					if (shouldLoadTiles || now - tileLoadPausedAt < 1000) pauseTileLoad(map, 80)
+					if (shouldLoadTiles || now - tileLoadPausedAt > 1000) pauseTileLoad(map, 80)
 				}
 			}
 		},
