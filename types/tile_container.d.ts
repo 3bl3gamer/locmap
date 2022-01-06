@@ -56,12 +56,14 @@ export function clampEarthTiles(tileFunc: TileImgLoadFunc): TileImgLoadFunc;
  * Draws simple tile placeholder (semi-transparent square).
  *
  * @param {import('./map').LocMap} map
+ * @param {number} i
+ * @param {number} j
  * @param {number} x
  * @param {number} y
  * @param {number} tileW
  * @param {number} scale
  */
-export function drawRectTilePlaceholder(map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number): void;
+export function drawRectTilePlaceholder(map: import('./map').LocMap, i: number, j: number, x: number, y: number, tileW: number, scale: number): void;
 /**
  * When `img` is `null`, the tile is considerend blank and not drawn (may be replaced by placeholder).
  *
@@ -82,4 +84,4 @@ export type AnyTile = BlankTile | ImgTile;
 export type TileUpdateFunc = (img: HTMLImageElement | ImageBitmap | null, clear: () => unknown) => unknown;
 export type TileImgLoadFunc = (x: number, y: number, z: number, onUpdate: TileUpdateFunc) => unknown;
 export type TilePathFunc = (x: number, y: number, z: number) => string;
-export type TilePlaceholderDrawFunc = (map: import('./map').LocMap, x: number, y: number, tileW: number, scale: number) => unknown;
+export type TilePlaceholderDrawFunc = (map: import('./map').LocMap, i: number, j: number, x: number, y: number, tileW: number, scale: number) => unknown;
