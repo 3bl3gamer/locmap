@@ -14,7 +14,7 @@
 /** @typedef {(img:HTMLImageElement|ImageBitmap|null, clear:()=>unknown) => unknown} TileUpdateFunc */
 /** @typedef {(x:number, y:number, z:number, onUpdate:TileUpdateFunc) => unknown} TileImgLoadFunc */
 /** @typedef {(x:number, y:number, z:number) => string} TilePathFunc */
-/** @typedef {(map:import('./map').LocMap, i:number, j:number, x:number, y:number, tileW:number, scale:number) => unknown} TilePlaceholderDrawFunc */
+/** @typedef {(map:import('./map').LocMap, x:number, y:number, z:number, drawX:number, drawY:number, tileW:number, scale:number) => unknown} TilePlaceholderDrawFunc */
 
 /**
  * @param {HTMLImageElement|ImageBitmap} img
@@ -290,7 +290,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 
 			let lowerTilesDrawn = false
 			if (!upperTileDrawn) {
-				tilePlaceholderDrawFunc?.(map, i, j, x, y, tileW, scale)
+				tilePlaceholderDrawFunc?.(map, i, j, level, x, y, tileW, scale)
 				if (canFillByQuaters) {
 					// drawing lower tiles as 2x2
 					for (let di = 0; di <= 1; di++)
@@ -429,18 +429,19 @@ export function clampEarthTiles(tileFunc) {
  * Draws simple tile placeholder (semi-transparent square).
  *
  * @param {import('./map').LocMap} map
- * @param {number} i
- * @param {number} j
- * @param {number} x
- * @param {number} y
- * @param {number} tileW
- * @param {number} scale
+ * @param {number} x tile column index
+ * @param {number} y tile row index
+ * @param {number} z tile level
+ * @param {number} drawX location on canvas
+ * @param {number} drawY location on canvas
+ * @param {number} tileW current tile size
+ * @param {number} scale tile scale relative to it's regular size (displaying size is `tileW*scale`)
  */
-export function drawRectTilePlaceholder(map, i, j, x, y, tileW, scale) {
+export function drawRectTilePlaceholder(map, x, y, z, drawX, drawY, tileW, scale) {
 	const rc = map.get2dContext()
 	if (rc === null) return
 	const w = tileW * scale
 	const margin = 1.5
 	rc.strokeStyle = '#8883'
-	rc.strokeRect(x + margin, y + margin, w - margin * 2, w - margin * 2)
+	rc.strokeRect(drawX + margin, drawY + margin, w - margin * 2, w - margin * 2)
 }

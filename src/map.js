@@ -422,17 +422,17 @@ export function LocMap(wrap, conv) {
 /** @type {ProjectionConverter} */
 export const ProjectionFlat = {
 	x2lon(x, zoom) {
-		return x / zoom - 0.5
+		return x / zoom
 	},
 	y2lat(y, zoom) {
-		return y / zoom - 0.5
+		return y / zoom
 	},
 
 	lon2x(lon, zoom) {
-		return (lon + 0.5) * zoom
+		return lon * zoom
 	},
 	lat2y(lat, zoom) {
-		return (lat + 0.5) * zoom
+		return lat * zoom
 	},
 
 	meters2pixCoef(lat, zoom) {

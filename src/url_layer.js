@@ -12,15 +12,17 @@ function applyHashLocation(map) {
  * Saves current map position to `location.hash` as `#{lon}/{lat}/{level}`.
  * Updates map position on `location.hash` change.
  * @class
+ * @param {number} [lonLatPrec] location precision
+ * @param {number} [levelPrec] level precision
  */
-export function URLLayer() {
+export function URLLayer(lonLatPrec = 9, levelPrec = 4) {
 	let updateTimeout = -1
 	/** @param {import('./map').LocMap} map */
 	function updateURL(map) {
 		updateTimeout = -1
-		const lon = map.getLon().toFixed(9)
-		const lat = map.getLat().toFixed(9)
-		const z = Math.log2(map.getZoom()).toFixed(4)
+		const lon = map.getLon().toFixed(lonLatPrec)
+		const lat = map.getLat().toFixed(lonLatPrec)
+		const z = Math.log2(map.getZoom()).toFixed(levelPrec)
 		history.replaceState({}, '', `#${lon}/${lat}/${z}`)
 	}
 
