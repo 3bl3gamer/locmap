@@ -117,6 +117,8 @@ export class LocMap {
     register: (layer: MapLayer) => void;
     /** @param {MapLayer} layer */
     unregister: (layer: MapLayer) => void;
+    /** @returns {readonly MapLayer[]} */
+    getLayers: () => readonly MapLayer[];
     /**
      * Instantly update map location and zoom.
      * @param {number} lon_

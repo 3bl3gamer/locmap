@@ -326,15 +326,15 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 	 */
 	this.draw = (map, xShift, yShift, scale, iFrom, jFrom, iCount, jCount, level, shouldLoad) => {
 		const [mapViewWidth, mapViewheight] = map.getViewBoxSize()
-		// view size in tiles
-		const tileViewSize = ((mapViewWidth * mapViewheight) / tileW / tileW) | 0
+		// view size in tiles (extended a bit: it's needed for larger lastDrawnUnderLevelTilesArr and drawOneTile())
+		const tileViewSizeExt = Math.ceil(mapViewWidth / tileW + 1) * Math.ceil(mapViewheight / tileW + 1)
 
 		// refilling recent tiles array
 		lastDrawnUnderLevelTilesArr.length = 0
 		lastDrawnTiles.forEach(
 			x =>
 				x.z >= level + 1 &&
-				lastDrawnUnderLevelTilesArr.length < tileViewSize * 2 && //limiting max lower tile count, just in case
+				lastDrawnUnderLevelTilesArr.length < tileViewSizeExt * 2 && //limiting max lower tile count, just in case
 				lastDrawnUnderLevelTilesArr.push(x),
 		)
 		lastDrawnTiles.clear()
@@ -356,7 +356,7 @@ export function SmoothTileContainer(tileW, tileLoadFunc, tilePlaceholderDrawFunc
 			}
 
 		// limiting cache size
-		const cacheMaxSize = (10 * tileViewSize) | 0
+		const cacheMaxSize = (8 * tileViewSizeExt) | 0
 		for (let attempt = 0; attempt < 4 && cache.size > cacheMaxSize; attempt++) {
 			let oldestIter = drawIter - 1 //must not affect recently drawn tiles
 			cache.forEach(tile => (oldestIter = Math.min(oldestIter, tile.lastDrawIter)))

@@ -13,7 +13,7 @@ import {
 	drawRectTilePlaceholder,
 	clampEarthTiles,
 	loadTileImage,
-} from '../../src'
+} from '../../src/index.js'
 
 document.documentElement.style.height = '100%'
 document.body.style.margin = '0'

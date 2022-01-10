@@ -1,5 +1,5 @@
 import { controlDouble } from 'js-control'
-import { clamp } from './utils'
+import { clamp } from './utils.js'
 
 /**
  * @param {number} x1

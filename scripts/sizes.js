@@ -50,7 +50,7 @@ export default async function (commandOptions) {
 	}, {
 		input: '${indexFPath}',
 		output: { format: 'es', file: '${bundleMinFPath}' },
-		plugins: [resolve(), terser({ecma:2022, module:true, compress:{passes:2, unsafe_arrows:true}})],
+		plugins: [resolve(), terser({ecma:2020, module:true, compress:{passes:2, unsafe_arrows:true}})],
 	}]
 }`,
 		)

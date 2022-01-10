@@ -147,6 +147,8 @@ export function LocMap(wrap, conv) {
 		layers.splice(pos, 1)
 		if (layer.unregister) layer.unregister(this)
 	}
+	/** @returns {readonly MapLayer[]} */
+	this.getLayers = () => layers
 
 	/**
 	 * Instantly update map location and zoom.
