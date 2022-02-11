@@ -1072,6 +1072,7 @@
 							map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id });
 						}
 					}
+					canvas.style.cursor = 'grab';
 					return true
 				},
 				doubleDown(e, id0, x0, y0, id1, x1, y1) {
@@ -2062,4 +2063,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.2d14ce01.js.map
+//# sourceMappingURL=bundle.1af676bd.js.map
