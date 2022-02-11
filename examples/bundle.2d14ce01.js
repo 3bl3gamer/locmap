@@ -36,7 +36,7 @@
 	/**
 	 * Core map engine. Manages location, layers and some transition animations.
 	 * @class
-	 * @param {HTMLElement} wrap main map element
+	 * @param {HTMLElement} wrap main map element, should be relative/absolute for canvas to scale correctly
 	 * @param {ProjectionConverter} conv projection config, usually `ProjectionMercator`
 	 */
 	function LocMap(wrap, conv) {
@@ -798,7 +798,7 @@
 		const elem = document.createElement('div');
 		elem.className = 'map-credit';
 		elem.innerHTML = html;
-		for (const name in style) elem.style[name] = /**@type {string}*/ (style[name]);
+		applyStyles(elem, style);
 		wrap.appendChild(elem);
 	}
 
@@ -809,6 +809,14 @@
 	 */
 	function clamp(a, b, x) {
 		return Math.max(a, Math.min(b, x))
+	}
+
+	/**
+	 * @param {HTMLElement} elem
+	 * @param {Partial<CSSStyleDeclaration>} style
+	 */
+	function applyStyles(elem, style) {
+		for (const name in style) elem.style[name] = /**@type {string}*/ (style[name]);
 	}
 
 	/**
@@ -1013,8 +1021,11 @@
 		}
 
 		/** @param {import('./map').LocMap} map */
-		const makeControl = map =>
-			controlDouble({
+		const makeControl = map => {
+			const canvas = map.getCanvas();
+			canvas.style.cursor = 'grab';
+
+			return controlDouble({
 				singleDown(e, id, x, y, isSwitching) {
 					if (shouldShowTwoFingersHint(e, id)) return false
 					map.getWrap().focus();
@@ -1028,6 +1039,7 @@
 						lastDoubleTouchParams = null;
 					}
 					map.emit('singleDown', { x, y, id, isSwitching });
+					canvas.style.cursor = 'grabbing';
 					return true
 				},
 				singleMove(e, id, x, y) {
@@ -1116,8 +1128,9 @@
 				},
 			}).on({
 				// not map.getWrap(): so this layer will not prevent events from reaching other layers
-				startElem: map.getCanvas(),
-			});
+				startElem: canvas,
+			})
+		};
 
 		/** @param {import('./map').LocMap} map */
 		this.register = map => {
@@ -1138,6 +1151,7 @@
 	 * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
 	 *   It's a workaround for mobile Safari 14 (at least) bug where `canvas` performance
 	 *   drops significantly after changing parent `tabIndex` attribute.
+	 *   'none' (default) seems fixing the issue.
 	 */
 	function KeyboardControlLayer(opts) {
 		const { outlineFix = 'none' } = opts || {};
@@ -1226,7 +1240,7 @@
 	function ControlHintLayer(controlText, twoFingersText, opts) {
 		const elem = document.createElement('div');
 		elem.className = 'map-control-hint';
-		const styles = {
+		applyStyles(elem, {
 			position: 'absolute',
 			width: '100%',
 			height: '100%',
@@ -1240,9 +1254,8 @@
 			opacity: '0',
 			pointerEvents: 'none',
 			fontSize: '42px',
-		};
-		if (opts && opts.styles) Object.assign(styles, opts.styles);
-		for (const name in styles) elem.style[name] = styles[name];
+		});
+		if (opts?.styles) applyStyles(elem, opts?.styles);
 
 		let timeout = -1;
 		function showHint(text) {
@@ -1684,7 +1697,7 @@
 		return (x, y, z, onUpdate) => {
 			const img = new Image();
 			img.src = pathFunc(x, y, z);
-			const clearHtmlimg_ = () => clearHtmlImg(img);
+			const clearHtmlImg_ = () => clearHtmlImg(img);
 			img.onload = () => {
 				const createImageBitmap = window.createImageBitmap;
 				if (createImageBitmap) {
@@ -1692,13 +1705,13 @@
 					// if failed (beacuse of CORS for example) tryimg to show image anyway
 					createImageBitmap(img).then(
 						x => onUpdate(x, () => clearBitmapImg(x)),
-						() => onUpdate(img, clearHtmlimg_),
+						() => onUpdate(img, clearHtmlImg_),
 					);
 				} else {
-					onUpdate(img, clearHtmlimg_);
+					onUpdate(img, clearHtmlImg_);
 				}
 			};
-			onUpdate(null, clearHtmlimg_);
+			onUpdate(null, clearHtmlImg_);
 		}
 	}
 
@@ -1844,9 +1857,11 @@
 	 * @param {number} [levelPrec] level precision
 	 */
 	function URLLayer(lonLatPrec = 9, levelPrec = 4) {
+		/** @type {import('./map').LocMap} */
+		let map;
 		let updateTimeout = -1;
-		/** @param {import('./map').LocMap} map */
-		function updateURL(map) {
+
+		function updateURL() {
 			updateTimeout = -1;
 			const lon = map.getLon().toFixed(lonLatPrec);
 			const lat = map.getLat().toFixed(lonLatPrec);
@@ -1854,26 +1869,27 @@
 			history.replaceState({}, '', `#${lon}/${lat}/${z}`);
 		}
 
-		/** @type {() => unknown} */
-		let onHashChange;
-
-		/** @param {import('./map').LocMap} map */
-		this.register = map => {
+		function applyHash() {
 			applyHashLocation(map);
-			onHashChange = () => applyHashLocation(map);
-			addEventListener('hashchange', onHashChange);
+		}
+
+		/** @param {import('./map').LocMap} map_ */
+		this.register = map_ => {
+			map = map_;
+			applyHash();
+			addEventListener('hashchange', applyHash);
 		};
 
 		/** @param {import('./map').LocMap} map */
 		this.unregister = map => {
 			clearTimeout(updateTimeout);
-			removeEventListener('hashchange', onHashChange);
+			removeEventListener('hashchange', applyHash);
 		};
 
 		/** @param {import('./map').LocMap} map */
 		this.update = map => {
 			clearTimeout(updateTimeout);
-			updateTimeout = window.setTimeout(() => updateURL(map), 500);
+			updateTimeout = window.setTimeout(updateURL, 500);
 		};
 	}
 
@@ -2046,4 +2062,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.b09dd494.js.map
+//# sourceMappingURL=bundle.2d14ce01.js.map
