@@ -392,7 +392,7 @@ export function loadTileImage(pathFunc) {
 	return (x, y, z, onUpdate) => {
 		const img = new Image()
 		img.src = pathFunc(x, y, z)
-		const clearHtmlimg_ = () => clearHtmlImg(img)
+		const clearHtmlImg_ = () => clearHtmlImg(img)
 		img.onload = () => {
 			const createImageBitmap = window.createImageBitmap
 			if (createImageBitmap) {
@@ -400,13 +400,13 @@ export function loadTileImage(pathFunc) {
 				// if failed (beacuse of CORS for example) tryimg to show image anyway
 				createImageBitmap(img).then(
 					x => onUpdate(x, () => clearBitmapImg(x)),
-					() => onUpdate(img, clearHtmlimg_),
+					() => onUpdate(img, clearHtmlImg_),
 				)
 			} else {
-				onUpdate(img, clearHtmlimg_)
+				onUpdate(img, clearHtmlImg_)
 			}
 		}
-		onUpdate(null, clearHtmlimg_)
+		onUpdate(null, clearHtmlImg_)
 	}
 }
 

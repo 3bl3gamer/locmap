@@ -15,8 +15,8 @@ export class URLLayer {
      * @param {number} [levelPrec] level precision
      */
     constructor(lonLatPrec?: number | undefined, levelPrec?: number | undefined);
-    /** @param {import('./map').LocMap} map */
-    register: (map: import('./map').LocMap) => void;
+    /** @param {import('./map').LocMap} map_ */
+    register: (map_: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */
     unregister: (map: import('./map').LocMap) => void;
     /** @param {import('./map').LocMap} map */

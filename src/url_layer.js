@@ -16,9 +16,11 @@ function applyHashLocation(map) {
  * @param {number} [levelPrec] level precision
  */
 export function URLLayer(lonLatPrec = 9, levelPrec = 4) {
+	/** @type {import('./map').LocMap} */
+	let map
 	let updateTimeout = -1
-	/** @param {import('./map').LocMap} map */
-	function updateURL(map) {
+
+	function updateURL() {
 		updateTimeout = -1
 		const lon = map.getLon().toFixed(lonLatPrec)
 		const lat = map.getLat().toFixed(lonLatPrec)
@@ -26,25 +28,26 @@ export function URLLayer(lonLatPrec = 9, levelPrec = 4) {
 		history.replaceState({}, '', `#${lon}/${lat}/${z}`)
 	}
 
-	/** @type {() => unknown} */
-	let onHashChange
-
-	/** @param {import('./map').LocMap} map */
-	this.register = map => {
+	function applyHash() {
 		applyHashLocation(map)
-		onHashChange = () => applyHashLocation(map)
-		addEventListener('hashchange', onHashChange)
+	}
+
+	/** @param {import('./map').LocMap} map_ */
+	this.register = map_ => {
+		map = map_
+		applyHash()
+		addEventListener('hashchange', applyHash)
 	}
 
 	/** @param {import('./map').LocMap} map */
 	this.unregister = map => {
 		clearTimeout(updateTimeout)
-		removeEventListener('hashchange', onHashChange)
+		removeEventListener('hashchange', applyHash)
 	}
 
 	/** @param {import('./map').LocMap} map */
 	this.update = map => {
 		clearTimeout(updateTimeout)
-		updateTimeout = window.setTimeout(() => updateURL(map), 500)
+		updateTimeout = window.setTimeout(updateURL, 500)
 	}
 }

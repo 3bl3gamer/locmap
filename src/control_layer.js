@@ -1,5 +1,5 @@
 import { controlDouble } from 'js-control'
-import { clamp } from './utils.js'
+import { applyStyles, clamp } from './utils.js'
 
 /**
  * @param {number} x1
@@ -203,8 +203,11 @@ export function PointerControlLayer(opts) {
 	}
 
 	/** @param {import('./map').LocMap} map */
-	const makeControl = map =>
-		controlDouble({
+	const makeControl = map => {
+		const canvas = map.getCanvas()
+		canvas.style.cursor = 'grab'
+
+		return controlDouble({
 			singleDown(e, id, x, y, isSwitching) {
 				if (shouldShowTwoFingersHint(e, id)) return false
 				map.getWrap().focus()
@@ -218,6 +221,7 @@ export function PointerControlLayer(opts) {
 					lastDoubleTouchParams = null
 				}
 				map.emit('singleDown', { x, y, id, isSwitching })
+				canvas.style.cursor = 'grabbing'
 				return true
 			},
 			singleMove(e, id, x, y) {
@@ -250,6 +254,7 @@ export function PointerControlLayer(opts) {
 						map.emit(isDbl ? 'dblClick' : 'singleClick', { x: mouseX, y: mouseY, id })
 					}
 				}
+				canvas.style.cursor = 'grab'
 				return true
 			},
 			doubleDown(e, id0, x0, y0, id1, x1, y1) {
@@ -306,8 +311,9 @@ export function PointerControlLayer(opts) {
 			},
 		}).on({
 			// not map.getWrap(): so this layer will not prevent events from reaching other layers
-			startElem: map.getCanvas(),
+			startElem: canvas,
 		})
+	}
 
 	/** @param {import('./map').LocMap} map */
 	this.register = map => {
@@ -328,6 +334,7 @@ export function PointerControlLayer(opts) {
  * @param {string|null} [opts.outlineFix] value that will be set to `map.getWrap().style.outline`.
  *   It's a workaround for mobile Safari 14 (at least) bug where `canvas` performance
  *   drops significantly after changing parent `tabIndex` attribute.
+ *   'none' (default) seems fixing the issue.
  */
 export function KeyboardControlLayer(opts) {
 	const { outlineFix = 'none' } = opts || {}
@@ -416,7 +423,7 @@ export function ControlLayer(mouseOpts, kbdOpts) {
 export function ControlHintLayer(controlText, twoFingersText, opts) {
 	const elem = document.createElement('div')
 	elem.className = 'map-control-hint'
-	const styles = {
+	applyStyles(elem, {
 		position: 'absolute',
 		width: '100%',
 		height: '100%',
@@ -430,9 +437,8 @@ export function ControlHintLayer(controlText, twoFingersText, opts) {
 		opacity: '0',
 		pointerEvents: 'none',
 		fontSize: '42px',
-	}
-	if (opts && opts.styles) Object.assign(styles, opts.styles)
-	for (const name in styles) elem.style[name] = styles[name]
+	})
+	if (opts?.styles) applyStyles(elem, opts?.styles)
 
 	let timeout = -1
 	function showHint(text) {

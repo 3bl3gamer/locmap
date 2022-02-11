@@ -29,7 +29,7 @@ export function appendCredit(wrap, html, style = CREDIT_BOTTOM_RIGHT) {
 	const elem = document.createElement('div')
 	elem.className = 'map-credit'
 	elem.innerHTML = html
-	for (const name in style) elem.style[name] = /**@type {string}*/ (style[name])
+	applyStyles(elem, style)
 	wrap.appendChild(elem)
 }
 
@@ -40,4 +40,12 @@ export function appendCredit(wrap, html, style = CREDIT_BOTTOM_RIGHT) {
  */
 export function clamp(a, b, x) {
 	return Math.max(a, Math.min(b, x))
+}
+
+/**
+ * @param {HTMLElement} elem
+ * @param {Partial<CSSStyleDeclaration>} style
+ */
+export function applyStyles(elem, style) {
+	for (const name in style) elem.style[name] = /**@type {string}*/ (style[name])
 }

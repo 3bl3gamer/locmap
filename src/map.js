@@ -33,7 +33,7 @@
 /**
  * Core map engine. Manages location, layers and some transition animations.
  * @class
- * @param {HTMLElement} wrap main map element
+ * @param {HTMLElement} wrap main map element, should be relative/absolute for canvas to scale correctly
  * @param {ProjectionConverter} conv projection config, usually `ProjectionMercator`
  */
 export function LocMap(wrap, conv) {

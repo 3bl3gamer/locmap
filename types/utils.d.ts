@@ -18,5 +18,10 @@ export function appendCredit(wrap: HTMLElement, html: string, style?: Partial<CS
  * @param {number} x
  */
 export function clamp(a: number, b: number, x: number): number;
+/**
+ * @param {HTMLElement} elem
+ * @param {Partial<CSSStyleDeclaration>} style
+ */
+export function applyStyles(elem: HTMLElement, style: Partial<CSSStyleDeclaration>): void;
 /** @type {Partial<CSSStyleDeclaration>} */
 export const CREDIT_BOTTOM_RIGHT: Partial<CSSStyleDeclaration>;
