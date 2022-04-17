@@ -208,7 +208,7 @@
 
 		/** @param {number} frameTime */
 		const smoothIfNecessary = frameTime => {
-			const now = performance.now();
+			const now = frameTime;
 
 			if (Math.abs(zoomAnimationDelta - 1) > zoomAnimationMinSpeed) {
 				const elapsed = now - zoomAnimationPrevStamp;
@@ -266,7 +266,7 @@
 		/** @param {number} frameTime */
 		function onAnimationFrame(frameTime) {
 			animFrameRequested = false;
-			smoothIfNecessary();
+			smoothIfNecessary(frameTime);
 			drawLayers();
 		}
 		/** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
@@ -328,7 +328,7 @@
 			zoomAnimationY = y;
 			zoomAnimationPrevStamp = stamp;
 			zoomAnimationMode = ZOOM_ANIM_MODE_SMOOTH;
-			smoothIfNecessary();
+			smoothIfNecessary(stamp);
 		};
 
 		/**
@@ -360,7 +360,7 @@
 			moveAnimationY += dy;
 			moveAnimationPrevStamp = stamp;
 			moveAnimationMode = MOVE_ANIM_MODE_SMOOTH;
-			smoothIfNecessary();
+			smoothIfNecessary(stamp);
 		};
 
 		/**
@@ -375,7 +375,7 @@
 			moveAnimationY = dy;
 			moveAnimationPrevStamp = stamp;
 			moveAnimationMode = MOVE_ANIM_MODE_INERTIA;
-			smoothIfNecessary();
+			smoothIfNecessary(stamp);
 		};
 		/**
 		 * Start zoomin map with a certain speed and a gradual slowdown around `(x,y)` reference point.
@@ -391,7 +391,7 @@
 			zoomAnimationY = y;
 			zoomAnimationPrevStamp = stamp;
 			zoomAnimationMode = ZOOM_ANIM_MODE_INERTIA;
-			smoothIfNecessary();
+			smoothIfNecessary(stamp);
 		};
 
 		//------------
@@ -1166,7 +1166,7 @@
 
 			let shouldPrevent = true;
 			const { key, shiftKey, timeStamp } = e;
-			const { width, height } = map.getCanvas();
+			const [width, height] = map.getViewBoxSize();
 			const moveDelta = 75 * (shiftKey ? 3 : 1);
 			const zoomDelta = 2 * (shiftKey ? 2 : 1);
 
@@ -2063,4 +2063,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.1af676bd.js.map
+//# sourceMappingURL=bundle.f4d453a6.js.map
