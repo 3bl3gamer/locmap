@@ -205,7 +205,7 @@ export function LocMap(wrap, conv) {
 
 	/** @param {number} frameTime */
 	const smoothIfNecessary = frameTime => {
-		const now = performance.now()
+		const now = frameTime
 
 		if (Math.abs(zoomAnimationDelta - 1) > zoomAnimationMinSpeed) {
 			const elapsed = now - zoomAnimationPrevStamp

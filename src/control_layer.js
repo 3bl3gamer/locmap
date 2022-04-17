@@ -348,7 +348,7 @@ export function KeyboardControlLayer(opts) {
 
 		let shouldPrevent = true
 		const { key, shiftKey, timeStamp } = e
-		const { width, height } = map.getCanvas()
+		const [width, height] = map.getViewBoxSize()
 		const moveDelta = 75 * (shiftKey ? 3 : 1)
 		const zoomDelta = 2 * (shiftKey ? 2 : 1)
 
