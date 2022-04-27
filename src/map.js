@@ -263,10 +263,15 @@ export function LocMap(wrap, conv) {
 	/** @param {number} frameTime */
 	function onAnimationFrame(frameTime) {
 		animFrameRequested = false
-		smoothIfNecessary(frameTime)
+		// On some browsers frameTime is not a callback call time but last VSync time:
+		// https://stackoverflow.com/questions/64177381/timestamp-of-requestanimationframe-is-not-reliable
+		// So this frame time can be LESS than event.timeStamp in touch event (for example)
+		// even if current animation frame callback was called AFTER touch event callback.
+		// Because of that frameTime can not be used for animation in smoothIfNecessary().
+		smoothIfNecessary(performance.now())
 		drawLayers()
 	}
-	/** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
+	/** Schedules map redraw (unless already scheduled). Can be safelly called multiple times per frame. */
 	this.requestRedraw = requestRedraw
 
 	//-------------------

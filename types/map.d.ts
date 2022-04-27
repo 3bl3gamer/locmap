@@ -126,7 +126,7 @@ export class LocMap {
      * @param {number} zoom_
      */
     updateLocation: (lon_: number, lat_: number, zoom_: number) => void;
-    /** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
+    /** Schedules map redraw (unless already scheduled). Can be safelly called multiple times per frame. */
     requestRedraw: () => void;
     /**
      * Should be called after map element (`wrap`) resize to update internal state and canvas.
