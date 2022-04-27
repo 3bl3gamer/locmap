@@ -266,10 +266,15 @@
 		/** @param {number} frameTime */
 		function onAnimationFrame(frameTime) {
 			animFrameRequested = false;
-			smoothIfNecessary(frameTime);
+			// On some browsers frameTime is not a callback call time but last VSync time:
+			// https://stackoverflow.com/questions/64177381/timestamp-of-requestanimationframe-is-not-reliable
+			// So this frame time can be LESS than event.timeStamp in touch event (for example)
+			// even if current animation frame callback was called AFTER touch event callback.
+			// Because of that frameTime can not be used for animation in smoothIfNecessary().
+			smoothIfNecessary(performance.now());
 			drawLayers();
 		}
-		/** Schedules map redraw (unless already scheduled). Can be safelyl called multiple times per frame. */
+		/** Schedules map redraw (unless already scheduled). Can be safelly called multiple times per frame. */
 		this.requestRedraw = requestRedraw;
 
 		//-------------------
@@ -961,14 +966,25 @@
 		}
 		/**
 		 * @param {import('./map').LocMap} map
-		 * @param {number} timeStamp
+		 * @param {number} eventTimeStamp
 		 */
-		function applyInertia(map, timeStamp) {
-			const dx = getApproximatedSpeed(lastMoves, 'x', timeStamp);
-			const dy = getApproximatedSpeed(lastMoves, 'y', timeStamp);
-			const dz = getApproximatedSpeed(lastZooms, 'dist', timeStamp) / lastDoubleTouch_dist + 1;
-			map.applyMoveInertia(dx, dy, lastMoves[lastMoves.length - 1].stamp);
-			map.applyZoomInertia(mouseX, mouseY, dz, lastZooms[lastZooms.length - 1].stamp);
+		function applyInertia(map, eventTimeStamp) {
+			const dx = getApproximatedSpeed(lastMoves, 'x', eventTimeStamp);
+			const dy = getApproximatedSpeed(lastMoves, 'y', eventTimeStamp);
+			const dz = getApproximatedSpeed(lastZooms, 'dist', eventTimeStamp) / lastDoubleTouch_dist + 1;
+			// Each event has two timeStamps:
+			//   1) time of actual user action - event.timeStamp
+			//   2) time of callback call - approx. performance.now()
+			// Delay between them is unstable and different from time to time
+			// and from browser to browser (I've seen 1-16ms delay in Chrome and 1-30ms in FF).
+			// Motion calcuations are done by (1) for the precision sake
+			// but control reactions (redraw after movement) are preformed at callback call time, i.e. (2).
+			// So here movement estimations are calculated for the event (touchup/mouseup) time,
+			// but this inertia movement is *applied* at current time.
+			// If inertia was applied at event time too, there would be sometimes a small movement "jump"
+			// after releasing map with motion.
+			map.applyMoveInertia(dx, dy, performance.now());
+			map.applyZoomInertia(mouseX, mouseY, dz, performance.now());
 		}
 
 		/**
@@ -1033,8 +1049,8 @@
 					if (isSwitching) moveRecordedMousePos();
 					if (!isSwitching) {
 						recordMousePos(e.timeStamp);
-						map.applyMoveInertia(0, 0, 0);
-						map.applyZoomInertia(0, 0, 1, 0);
+						map.applyMoveInertia(0, 0, e.timeStamp);
+						map.applyZoomInertia(0, 0, 1, e.timeStamp);
 						moveDistance = 0;
 						lastDoubleTouchParams = null;
 					}
@@ -2063,4 +2079,4 @@
 	});
 
 }());
-//# sourceMappingURL=bundle.f4d453a6.js.map
+//# sourceMappingURL=bundle.02da47fe.js.map
