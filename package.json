@@ -20,7 +20,7 @@
     "prettier": "^2.3.2",
     "rollup": "^2.56.3",
     "rollup-plugin-terser": "^7.0.2",
-    "typedoc": "file:../typedoc_fixes",
+    "typedoc": "^0.23.11",
     "typescript": "^4.4.2"
   },
   "dependencies": {

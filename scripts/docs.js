@@ -1,5 +1,5 @@
 #!/bin/node
-import { writeFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import { dirname } from 'path'
 import {
 	Application,
@@ -15,6 +15,7 @@ import {
 	UnionType,
 	TupleType,
 	NamedTupleMember,
+	DeclarationReflection,
 } from 'typedoc'
 import { fileURLToPath } from 'url'
 import { getRegularExampleSource, getSizesTable } from './sizes.js'
@@ -153,22 +154,28 @@ function getParamDoc(item) {
  * @param {import('typedoc').Comment|undefined} comment
  */
 function getFullComment(prefix, comment) {
-	if (comment && comment.tags.length > 0) {
-		console.log(comment.tags)
+	if (comment && comment.modifierTags.size > 0) {
+		console.log(comment.modifierTags)
 		throw new Error('tags')
 	}
 	let text = ''
-	if (comment) text += comment.shortText + (comment.text ? '\n\n' + comment.text : '')
+	if (comment)
+		text += comment.summary
+			.map(x => {
+				if (x.kind === 'text' || x.kind === 'code') return x.text
+				if (x.kind === 'inline-tag') {
+					if (x.tag === '@linkcode' && x.target instanceof DeclarationReflection)
+						return `[\`${x.text}\`](#${GITHUB_ANCHOR_PREFIX}${x.target.name.toLocaleLowerCase()})`
+				}
+				console.log(x)
+				throw new Error(`unexpected item kind '${x.kind}'`)
+			})
+			.join('')
 	text = text.trimEnd()
 	if (text.length > 0) {
 		text = prefix + text
 		if (!text.endsWith('.')) text += '.'
 	}
-	text = text.replace(/{\s*@link(code)?\s+(\w+)\s*}/g, (_, code, name) => {
-		let label = name
-		if (code) label = '`' + label + '`'
-		return `[${label}](#${GITHUB_ANCHOR_PREFIX}${name.toLocaleLowerCase()})`
-	})
 	return text
 }
 
@@ -282,6 +289,7 @@ function reaplceReadmeBlock(text, prefix, separator, chunk) {
 
 	app.bootstrap({
 		entryPoints: [`${baseDir}/src`],
+		readme: '/dev/null',
 	})
 
 	const project = app.convert()
@@ -327,25 +335,6 @@ function reaplceReadmeBlock(text, prefix, separator, chunk) {
 			describeFunc(write, func)
 		})
 
-	// for (const child of project.children) {
-	// 	switch (child.kindString) {
-	// 		case 'Class':
-	// 			console.log('class: ' + child.name)
-	// 			break
-	// 		case 'Type alias':
-	// 			console.log('type: ' + child.name)
-	// 			break
-	// 		case 'Variable':
-	// 			console.log('var: ' + child.name)
-	// 			break
-	// 		case 'Function':
-	// 			console.log('func: ' + child.name)
-	// 			break
-	// 		default:
-	// 			console.log('unexpected kind: ' + child.kindString)
-	// 	}
-	// }
-
 	console.log('gathering sizes data...')
 
 	const sizeInfo = await getSizesTable()
@@ -354,7 +343,7 @@ function reaplceReadmeBlock(text, prefix, separator, chunk) {
 
 	console.log('updating README...')
 
-	let content = project.readme ?? ''
+	let content = readFileSync(`${baseDir}/README.md`, 'utf-8')
 	content = reaplceReadmeBlock(content, 'REGULAR_SIZE', '', regularBundleSize)
 	content = reaplceReadmeBlock(content, 'REGULAR_EXAMPLE', '\n', regularSource)
 	content = reaplceReadmeBlock(content, 'SIZE_TABLE', '\n', sizeInfo.table)

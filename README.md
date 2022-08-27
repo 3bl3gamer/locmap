@@ -243,8 +243,7 @@ Disables tile load while zooming.
  * `tileW` *number* — tile display size.
  * `tileLoadFunc` *TileImgLoadFunc* — loads tile image,
   see [`loadTileImage`](#user-content-loadtileimage) and maybe [`clampEarthTiles`](#user-content-clampearthtiles).
- * `tilePlaceholderDrawFunc` *TilePlaceholderDrawFunc* — 
-  draws placeholder when tile is not ready or has failed to load
+ * `tilePlaceholderDrawFunc` *TilePlaceholderDrawFunc* — draws placeholder when tile is not ready or has failed to load
   (for example, [`drawRectTilePlaceholder`](#user-content-drawrecttileplaceholder)).
 
 Loads, caches and draws tiles with transitions. To be used with [`TileLayer`](#user-content-tilelayer).
@@ -290,7 +289,7 @@ Makes map element focusable.
  * `opts` *{styles}* — text box style overrides.
    * `styles` *Record\<string, string\>*
 
-Should be used with `doNotInterfere:true` set on [`MouseControlLayer`](#user-content-mousecontrollayer) or [`ControlLayer`](#user-content-controllayer).
+Should be used with `doNotInterfere:true` set on [`PointerControlLayer`](#user-content-pointercontrollayer) or [`ControlLayer`](#user-content-controllayer).
 Shows a text over the map when user input is ignored.
 
 
@@ -314,7 +313,7 @@ Updates map position on `location.hash` change.
 
  * `wrap` *HTMLElement* — parent element, usually `map.getWrap()`.
  * `html` *string* — content as HTML (won't be escaped).
- * `style` *Partial\<CSSStyleDeclaration\>* **Default**: `CREDIT_BOTTOM_RIGHT`
+ * `style` *Partial\<CSSStyleDeclaration\>* — custom style object. **Default**: `CREDIT_BOTTOM_RIGHT`
 
 Shortcut for appending some HTML at the right-bottom of another element.
 
