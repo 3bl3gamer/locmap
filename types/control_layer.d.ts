@@ -75,7 +75,7 @@ export class ControlLayer {
     unregister: (map: import('./map').LocMap) => void;
 }
 /**
- * Should be used with `doNotInterfere:true` set on {@linkcode MouseControlLayer} or {@linkcode ControlLayer}.
+ * Should be used with `doNotInterfere:true` set on {@linkcode PointerControlLayer} or {@linkcode ControlLayer}.
  * Shows a text over the map when user input is ignored.
  * @class
  * @param {string} controlText text to be shown when `Ctrl`/`⌘` key is required to zoom.
@@ -89,7 +89,7 @@ export function ControlHintLayer(controlText: string, twoFingersText: string, op
 } | undefined): void;
 export class ControlHintLayer {
     /**
-     * Should be used with `doNotInterfere:true` set on {@linkcode MouseControlLayer} or {@linkcode ControlLayer}.
+     * Should be used with `doNotInterfere:true` set on {@linkcode PointerControlLayer} or {@linkcode ControlLayer}.
      * Shows a text over the map when user input is ignored.
      * @class
      * @param {string} controlText text to be shown when `Ctrl`/`⌘` key is required to zoom.

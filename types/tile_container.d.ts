@@ -70,7 +70,7 @@ export function drawRectTilePlaceholder(map: import('./map').LocMap, x: number, 
  *
  * When `img` is not `null`, the tile is considerend ready to be drawn.
  */
-export type Tile<TImg extends HTMLImageElement | ImageBitmap | null> = {
+export type Tile<TImg extends ImageBitmap | HTMLImageElement | null> = {
     img: TImg;
     clear: (() => unknown) | null;
     x: number;
